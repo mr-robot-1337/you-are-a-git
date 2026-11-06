@@ -6,6 +6,8 @@ Welcome to **GitQuest** — a lightweight, zero-dependency interactive game and 
 
 Whether you've ever panicked over a detached `HEAD`, wondered where staged files actually live, or wanted a safe place to test `git reset --hard` without nuking your real project, **GitQuest** has your back!
 
+![GitQuest Running Application Screenshot](public/screenshot.png)
+
 ---
 
 ## ✨ What's Inside?
@@ -83,7 +85,9 @@ git log                     # View commit history and branch pointers
 ├── package.json        # Scripts (`npm start`, `npm run dev`)
 ├── server.js           # Lightweight Node.js static server
 ├── public/
-│   └── index.html      # Game UI, SVG DAG graph, and GitSandbox engine
+│   ├── index.html      # Game UI, SVG DAG graph, and GitSandbox engine
+│   ├── screenshot.png  # Application screenshot
+│   └── screenshot.svg  # Vector source for the application screenshot
 └── README.md           # You are here!
 ```
 

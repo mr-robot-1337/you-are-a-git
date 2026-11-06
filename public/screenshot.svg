@@ -1,0 +1,332 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" width="1280" height="800" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, sans-serif">
+  <defs>
+    <radialGradient id="graphBg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </radialGradient>
+    <style>
+      .mono { font-family: 'JetBrains Mono', 'Fira Code', 'DejaVu Sans Mono', Consolas, monospace; }
+    </style>
+  </defs>
+
+  <!-- App Background -->
+  <rect width="1280" height="800" fill="#0f172a" />
+
+  <!-- ==================== HEADER ==================== -->
+  <rect x="0" y="0" width="1280" height="54" fill="#0b1120" />
+  <line x1="0" y1="54" x2="1280" y2="54" stroke="#334155" stroke-width="1" />
+
+  <!-- Brand Icon & Title -->
+  <g transform="translate(20, 15)" stroke="#38bdf8" stroke-width="2" fill="none">
+    <circle cx="6" cy="6" r="3" />
+    <circle cx="6" cy="18" r="3" />
+    <circle cx="18" cy="12" r="3" />
+    <line x1="6" y1="9" x2="6" y2="15" />
+    <path d="M6 9a9 9 0 0 0 9 3" />
+  </g>
+  <text x="54" y="33" fill="#38bdf8" font-size="19" font-weight="700">GitQuest</text>
+
+  <!-- Brand Badge -->
+  <rect x="142" y="16" width="212" height="22" rx="11" fill="#38bdf8" fill-opacity="0.15" stroke="#38bdf8" stroke-opacity="0.4" stroke-width="1" />
+  <text x="248" y="31" text-anchor="middle" fill="#38bdf8" font-size="12" font-weight="700">Interactive Git Game + Sandbox</text>
+
+  <!-- Level Buttons Bar -->
+  <g transform="translate(830, 12)">
+    <!-- Lvl 1 (done) -->
+    <rect x="0" y="0" width="60" height="30" rx="6" fill="#1e293b" stroke="#4ade80" stroke-width="1" />
+    <text x="30" y="20" text-anchor="middle" fill="#4ade80" font-size="13" font-weight="600">Lvl 1</text>
+
+    <!-- Lvl 2 (done) -->
+    <rect x="66" y="0" width="60" height="30" rx="6" fill="#1e293b" stroke="#4ade80" stroke-width="1" />
+    <text x="96" y="20" text-anchor="middle" fill="#4ade80" font-size="13" font-weight="600">Lvl 2</text>
+
+    <!-- Lvl 3 (done) -->
+    <rect x="132" y="0" width="60" height="30" rx="6" fill="#1e293b" stroke="#4ade80" stroke-width="1" />
+    <text x="162" y="20" text-anchor="middle" fill="#4ade80" font-size="13" font-weight="600">Lvl 3</text>
+
+    <!-- Lvl 4 (done + active) -->
+    <rect x="198" y="0" width="60" height="30" rx="6" fill="#4ade80" stroke="#4ade80" stroke-width="1" />
+    <text x="228" y="20" text-anchor="middle" fill="#0f172a" font-size="13" font-weight="700">Lvl 4</text>
+
+    <!-- Lvl 5 -->
+    <rect x="264" y="0" width="60" height="30" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1" />
+    <text x="294" y="20" text-anchor="middle" fill="#94a3b8" font-size="13" font-weight="600">Lvl 5</text>
+
+    <!-- Sandbox -->
+    <rect x="330" y="0" width="100" height="30" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1" />
+    <text x="380" y="20" text-anchor="middle" fill="#94a3b8" font-size="13" font-weight="600">Sandbox</text>
+  </g>
+
+  <!-- ==================== LEFT COLUMN ==================== -->
+  <rect x="0" y="55" width="380" height="745" fill="#1e293b" />
+  <line x1="380" y1="55" x2="380" y2="800" stroke="#334155" stroke-width="1" />
+
+  <!-- Mission Card -->
+  <g transform="translate(18, 73)">
+    <rect x="0" y="0" width="344" height="252" rx="10" fill="#0b1120" stroke="#334155" stroke-width="1" />
+    <text x="16" y="30" fill="#f8fafc" font-size="16.5" font-weight="700">Level 4: Merging Branches</text>
+
+    <!-- Reset Button -->
+    <rect x="272" y="13" width="56" height="24" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1" />
+    <text x="300" y="29" text-anchor="middle" fill="#cbd5e1" font-size="11.5" class="mono">↺ Reset</text>
+
+    <!-- Mission Description -->
+    <text x="16" y="56" fill="#cbd5e1" font-size="13.5">Your feature branch is ready! Switch back to</text>
+    <text x="16" y="75" fill="#cbd5e1" font-size="13.5">"main" and merge "feature" into "main" to</text>
+    <text x="16" y="94" fill="#cbd5e1" font-size="13.5">combine the histories.</text>
+
+    <!-- Objective 1 -->
+    <rect x="16" y="110" width="312" height="34" rx="6" fill="#4ade80" fill-opacity="0.08" stroke="#4ade80" stroke-opacity="0.5" stroke-width="1" />
+    <rect x="26" y="119" width="16" height="16" rx="3" fill="#4ade80" />
+    <path d="M 30 127 L 33 130 L 39 123" stroke="#052e16" stroke-width="2" fill="none" />
+    <text x="50" y="132" fill="#4ade80" font-size="13">Ensure HEAD is on "main"</text>
+
+    <!-- Objective 2 -->
+    <rect x="16" y="152" width="312" height="34" rx="6" fill="#4ade80" fill-opacity="0.08" stroke="#4ade80" stroke-opacity="0.5" stroke-width="1" />
+    <rect x="26" y="161" width="16" height="16" rx="3" fill="#4ade80" />
+    <path d="M 30 169 L 33 172 L 39 165" stroke="#052e16" stroke-width="2" fill="none" />
+    <text x="50" y="174" fill="#4ade80" font-size="13">Merge "feature" into "main"</text>
+
+    <!-- Level Complete Banner -->
+    <rect x="16" y="198" width="312" height="40" rx="8" fill="#4ade80" fill-opacity="0.15" stroke="#4ade80" stroke-width="1" />
+    <text x="28" y="223" fill="#4ade80" font-size="13.5" font-weight="700">★ Level Complete!</text>
+    <rect x="216" y="205" width="102" height="26" rx="6" fill="#4ade80" />
+    <text x="267" y="222" text-anchor="middle" fill="#052e16" font-size="12.5" font-weight="700">Next Level →</text>
+  </g>
+
+  <!-- Hint Box -->
+  <g transform="translate(18, 341)">
+    <rect x="0" y="0" width="344" height="58" rx="8" fill="#facc15" fill-opacity="0.08" stroke="#facc15" stroke-opacity="0.35" stroke-width="1" />
+    <text x="12" y="23" fill="#fef08a" font-size="12.5">Hint: Run <tspan fill="#38bdf8" class="mono">git checkout main</tspan> and then</text>
+    <text x="12" y="43" fill="#fef08a" font-size="12.5"><tspan fill="#38bdf8" class="mono">git merge feature</tspan>.</text>
+  </g>
+
+  <!-- Cheatsheet -->
+  <g transform="translate(18, 415)">
+    <rect x="0" y="0" width="344" height="366" rx="10" fill="#0b1120" stroke="#334155" stroke-width="1" />
+    <text x="14" y="26" fill="#94a3b8" font-size="12.5" font-weight="700" letter-spacing="0.8">GIT &amp; SANDBOX COMMANDS</text>
+
+    <!-- Command Rows -->
+    <g transform="translate(14, 46)" font-size="11.5">
+      <text x="0" y="0" fill="#38bdf8" class="mono">git init</text>
+      <text x="316" y="0" text-anchor="end" fill="#94a3b8">Create empty Git repo</text>
+      <line x1="0" y1="8" x2="316" y2="8" stroke="#ffffff" stroke-opacity="0.06" stroke-dasharray="3,3" />
+
+      <text x="0" y="26" fill="#38bdf8" class="mono">touch &lt;file&gt;</text>
+      <text x="316" y="26" text-anchor="end" fill="#94a3b8">Create or modify a file</text>
+      <line x1="0" y1="34" x2="316" y2="34" stroke="#ffffff" stroke-opacity="0.06" stroke-dasharray="3,3" />
+
+      <text x="0" y="52" fill="#38bdf8" class="mono">edit &lt;file&gt; &lt;txt&gt;</text>
+      <text x="316" y="52" text-anchor="end" fill="#94a3b8">Write content to file</text>
+      <line x1="0" y1="60" x2="316" y2="60" stroke="#ffffff" stroke-opacity="0.06" stroke-dasharray="3,3" />
+
+      <text x="0" y="78" fill="#38bdf8" class="mono">git status</text>
+      <text x="316" y="78" text-anchor="end" fill="#94a3b8">Check working tree state</text>
+      <line x1="0" y1="86" x2="316" y2="86" stroke="#ffffff" stroke-opacity="0.06" stroke-dasharray="3,3" />
+
+      <text x="0" y="104" fill="#38bdf8" class="mono">git add &lt;file|.&gt;</text>
+      <text x="316" y="104" text-anchor="end" fill="#94a3b8">Stage file(s) for commit</text>
+      <line x1="0" y1="112" x2="316" y2="112" stroke="#ffffff" stroke-opacity="0.06" stroke-dasharray="3,3" />
+
+      <text x="0" y="130" fill="#38bdf8" class="mono">git commit -m "msg"</text>
+      <text x="316" y="130" text-anchor="end" fill="#94a3b8">Record staged snapshot</text>
+      <line x1="0" y1="138" x2="316" y2="138" stroke="#ffffff" stroke-opacity="0.06" stroke-dasharray="3,3" />
+
+      <text x="0" y="156" fill="#38bdf8" class="mono">git branch &lt;name&gt;</text>
+      <text x="316" y="156" text-anchor="end" fill="#94a3b8">Create a new branch</text>
+      <line x1="0" y1="164" x2="316" y2="164" stroke="#ffffff" stroke-opacity="0.06" stroke-dasharray="3,3" />
+
+      <text x="0" y="182" fill="#38bdf8" class="mono">git checkout &lt;name&gt;</text>
+      <text x="316" y="182" text-anchor="end" fill="#94a3b8">Switch branch (or -b)</text>
+      <line x1="0" y1="190" x2="316" y2="190" stroke="#ffffff" stroke-opacity="0.06" stroke-dasharray="3,3" />
+
+      <text x="0" y="208" fill="#38bdf8" class="mono">git merge &lt;branch&gt;</text>
+      <text x="316" y="208" text-anchor="end" fill="#94a3b8">Merge branch into HEAD</text>
+      <line x1="0" y1="216" x2="316" y2="216" stroke="#ffffff" stroke-opacity="0.06" stroke-dasharray="3,3" />
+
+      <text x="0" y="234" fill="#38bdf8" class="mono">git reset --hard HEAD~1</text>
+      <text x="316" y="234" text-anchor="end" fill="#94a3b8">Rewind branch 1 commit</text>
+      <line x1="0" y1="242" x2="316" y2="242" stroke="#ffffff" stroke-opacity="0.06" stroke-dasharray="3,3" />
+
+      <text x="0" y="260" fill="#38bdf8" class="mono">git revert HEAD</text>
+      <text x="316" y="260" text-anchor="end" fill="#94a3b8">Create inverse commit</text>
+      <line x1="0" y1="268" x2="316" y2="268" stroke="#ffffff" stroke-opacity="0.06" stroke-dasharray="3,3" />
+
+      <text x="0" y="286" fill="#38bdf8" class="mono">git log</text>
+      <text x="316" y="286" text-anchor="end" fill="#94a3b8">Show commit history</text>
+    </g>
+  </g>
+
+  <!-- ==================== RIGHT COLUMN: TOP VISUALIZER ==================== -->
+  <!-- Graph Pane Background -->
+  <rect x="381" y="55" width="559" height="475" fill="url(#graphBg)" />
+
+  <!-- Graph Pane Header -->
+  <rect x="381" y="55" width="559" height="36" fill="#0b1120" fill-opacity="0.6" />
+  <line x1="381" y1="91" x2="940" y2="91" stroke="#ffffff" stroke-opacity="0.06" />
+  <text x="397" y="78" fill="#94a3b8" font-size="12.5" font-weight="600" letter-spacing="0.8">COMMIT GRAPH (DAG VISUALIZER)</text>
+  <text x="924" y="78" text-anchor="end" fill="#94a3b8" font-size="12.5" class="mono">HEAD → main [8f4a2d]</text>
+
+  <!-- DAG Edges -->
+  <path d="M 470 220 C 532 220, 532 320, 595 320" stroke="#475569" stroke-width="3" fill="none" />
+  <path d="M 470 220 L 720 220" stroke="#475569" stroke-width="3" fill="none" />
+  <path d="M 720 220 L 845 220" stroke="#475569" stroke-width="3" fill="none" />
+  <path d="M 595 320 C 720 320, 720 220, 845 220" stroke="#475569" stroke-width="3" fill="none" />
+
+  <!-- Commit 1: Core setup -->
+  <g transform="translate(470, 220)">
+    <circle cx="0" cy="0" r="22" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5" />
+    <text x="0" y="4" text-anchor="middle" fill="#f8fafc" font-size="11" font-weight="700" class="mono">01d9a</text>
+    <text x="0" y="40" text-anchor="middle" fill="#cbd5e1" font-size="11.5">Core setup</text>
+  </g>
+
+  <!-- Commit 2: Add feature.js (on feature branch) -->
+  <g transform="translate(595, 320)">
+    <!-- Branch Tag: feature -->
+    <rect x="-34" y="-54" width="68" height="22" rx="5" fill="#c084fc" />
+    <text x="0" y="-39" text-anchor="middle" fill="#0f172a" font-size="11" font-weight="700" class="mono">feature</text>
+
+    <circle cx="0" cy="0" r="22" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5" />
+    <text x="0" y="4" text-anchor="middle" fill="#f8fafc" font-size="11" font-weight="700" class="mono">3e7b1</text>
+    <text x="0" y="40" text-anchor="middle" fill="#cbd5e1" font-size="11.5">Add feature.js</text>
+  </g>
+
+  <!-- Commit 3: Main hotfix -->
+  <g transform="translate(720, 220)">
+    <circle cx="0" cy="0" r="22" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5" />
+    <text x="0" y="4" text-anchor="middle" fill="#f8fafc" font-size="11" font-weight="700" class="mono">6c2e4</text>
+    <text x="0" y="40" text-anchor="middle" fill="#cbd5e1" font-size="11.5">Main hotfix</text>
+  </g>
+
+  <!-- Commit 4: Merge commit (HEAD -> main) -->
+  <g transform="translate(845, 220)">
+    <!-- Branch Tag: HEAD -> main -->
+    <rect x="-48" y="-54" width="96" height="22" rx="5" fill="#4ade80" />
+    <text x="0" y="-39" text-anchor="middle" fill="#0f172a" font-size="11" font-weight="700" class="mono">HEAD → main</text>
+
+    <circle cx="0" cy="0" r="22" fill="#38bdf8" stroke="#bae6fd" stroke-width="4" />
+    <text x="0" y="4" text-anchor="middle" fill="#0f172a" font-size="11" font-weight="700" class="mono">8f4a2</text>
+    <text x="0" y="40" text-anchor="middle" fill="#cbd5e1" font-size="11.5">Merge branch 'f…</text>
+  </g>
+
+  <!-- ==================== 3-TREE INSPECTOR PANE ==================== -->
+  <rect x="940" y="55" width="340" height="475" fill="#1e293b" />
+  <line x1="940" y1="55" x2="940" y2="530" stroke="#334155" stroke-width="1" />
+
+  <!-- Inspector Header -->
+  <rect x="941" y="55" width="339" height="36" fill="#0b1120" fill-opacity="0.6" />
+  <line x1="941" y1="91" x2="1280" y2="91" stroke="#ffffff" stroke-opacity="0.06" />
+  <text x="956" y="78" fill="#94a3b8" font-size="12.5" font-weight="600" letter-spacing="0.8">3-TREE INSPECTOR</text>
+
+  <!-- Zone 1: Working Directory -->
+  <g transform="translate(952, 104)">
+    <rect x="0" y="0" width="316" height="74" rx="8" fill="#0b1120" stroke="#334155" stroke-width="1" />
+    <text x="12" y="22" fill="#94a3b8" font-size="12.5" font-weight="700">1. Working Directory</text>
+    <text x="304" y="22" text-anchor="end" fill="#94a3b8" font-size="12">3 file(s)</text>
+
+    <!-- File Pills -->
+    <g transform="translate(12, 36)">
+      <rect x="0" y="0" width="66" height="24" rx="4" fill="#38bdf8" fill-opacity="0.12" stroke="#38bdf8" stroke-opacity="0.35" />
+      <text x="33" y="16" text-anchor="middle" fill="#38bdf8" font-size="12" class="mono">core.js</text>
+
+      <rect x="74" y="0" width="86" height="24" rx="4" fill="#38bdf8" fill-opacity="0.12" stroke="#38bdf8" stroke-opacity="0.35" />
+      <text x="117" y="16" text-anchor="middle" fill="#38bdf8" font-size="12" class="mono">feature.js</text>
+
+      <rect x="168" y="0" width="80" height="24" rx="4" fill="#38bdf8" fill-opacity="0.12" stroke="#38bdf8" stroke-opacity="0.35" />
+      <text x="208" y="16" text-anchor="middle" fill="#38bdf8" font-size="12" class="mono">hotfix.js</text>
+    </g>
+  </g>
+
+  <!-- Zone 2: Staging Area (Index) -->
+  <g transform="translate(952, 190)">
+    <rect x="0" y="0" width="316" height="74" rx="8" fill="#0b1120" stroke="#334155" stroke-width="1" />
+    <text x="12" y="22" fill="#94a3b8" font-size="12.5" font-weight="700">2. Staging Area (Index)</text>
+    <text x="304" y="22" text-anchor="end" fill="#94a3b8" font-size="12">3 file(s)</text>
+
+    <!-- File Pills -->
+    <g transform="translate(12, 36)">
+      <rect x="0" y="0" width="66" height="24" rx="4" fill="#38bdf8" fill-opacity="0.12" stroke="#38bdf8" stroke-opacity="0.35" />
+      <text x="33" y="16" text-anchor="middle" fill="#38bdf8" font-size="12" class="mono">core.js</text>
+
+      <rect x="74" y="0" width="86" height="24" rx="4" fill="#38bdf8" fill-opacity="0.12" stroke="#38bdf8" stroke-opacity="0.35" />
+      <text x="117" y="16" text-anchor="middle" fill="#38bdf8" font-size="12" class="mono">feature.js</text>
+
+      <rect x="168" y="0" width="80" height="24" rx="4" fill="#38bdf8" fill-opacity="0.12" stroke="#38bdf8" stroke-opacity="0.35" />
+      <text x="208" y="16" text-anchor="middle" fill="#38bdf8" font-size="12" class="mono">hotfix.js</text>
+    </g>
+  </g>
+
+  <!-- Zone 3: HEAD Commit Snapshot -->
+  <g transform="translate(952, 276)">
+    <rect x="0" y="0" width="316" height="74" rx="8" fill="#0b1120" stroke="#334155" stroke-width="1" />
+    <text x="12" y="22" fill="#94a3b8" font-size="12.5" font-weight="700">3. HEAD Commit Snapshot</text>
+    <text x="304" y="22" text-anchor="end" fill="#94a3b8" font-size="12" class="mono">8f4a2d</text>
+
+    <!-- File Pills -->
+    <g transform="translate(12, 36)">
+      <rect x="0" y="0" width="66" height="24" rx="4" fill="#38bdf8" fill-opacity="0.12" stroke="#38bdf8" stroke-opacity="0.35" />
+      <text x="33" y="16" text-anchor="middle" fill="#38bdf8" font-size="12" class="mono">core.js</text>
+
+      <rect x="74" y="0" width="86" height="24" rx="4" fill="#38bdf8" fill-opacity="0.12" stroke="#38bdf8" stroke-opacity="0.35" />
+      <text x="117" y="16" text-anchor="middle" fill="#38bdf8" font-size="12" class="mono">feature.js</text>
+
+      <rect x="168" y="0" width="80" height="24" rx="4" fill="#38bdf8" fill-opacity="0.12" stroke="#38bdf8" stroke-opacity="0.35" />
+      <text x="208" y="16" text-anchor="middle" fill="#38bdf8" font-size="12" class="mono">hotfix.js</text>
+    </g>
+  </g>
+
+  <!-- Divider between Visualizer and Terminal -->
+  <line x1="381" y1="530" x2="1280" y2="530" stroke="#334155" stroke-width="1" />
+
+  <!-- ==================== BOTTOM TERMINAL PANE ==================== -->
+  <rect x="381" y="531" width="899" height="269" fill="#050811" />
+
+  <!-- Quick Actions Bar -->
+  <rect x="381" y="531" width="899" height="36" fill="#0b1120" />
+  <line x1="381" y1="567" x2="1280" y2="567" stroke="#334155" stroke-width="1" />
+
+  <g transform="translate(393, 538)" class="mono" font-size="11">
+    <text x="0" y="15" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11.5">Quick Fill:</text>
+
+    <rect x="64" y="0" width="68" height="22" rx="4" fill="#1e293b" stroke="#334155" />
+    <text x="98" y="15" text-anchor="middle" fill="#cbd5e1">git init</text>
+
+    <rect x="138" y="0" width="94" height="22" rx="4" fill="#1e293b" stroke="#334155" />
+    <text x="185" y="15" text-anchor="middle" fill="#cbd5e1">touch app.js</text>
+
+    <rect x="238" y="0" width="82" height="22" rx="4" fill="#1e293b" stroke="#334155" />
+    <text x="279" y="15" text-anchor="middle" fill="#cbd5e1">git status</text>
+
+    <rect x="326" y="0" width="76" height="22" rx="4" fill="#1e293b" stroke="#334155" />
+    <text x="364" y="15" text-anchor="middle" fill="#cbd5e1">git add .</text>
+
+    <rect x="408" y="0" width="136" height="22" rx="4" fill="#1e293b" stroke="#334155" />
+    <text x="476" y="15" text-anchor="middle" fill="#cbd5e1">git commit -m "..."</text>
+
+    <rect x="550" y="0" width="160" height="22" rx="4" fill="#1e293b" stroke="#334155" />
+    <text x="630" y="15" text-anchor="middle" fill="#cbd5e1">git checkout -b feature</text>
+
+    <rect x="716" y="0" width="124" height="22" rx="4" fill="#1e293b" stroke="#334155" />
+    <text x="778" y="15" text-anchor="middle" fill="#cbd5e1">git checkout main</text>
+  </g>
+
+  <!-- Terminal Log Output -->
+  <g transform="translate(397, 590)" class="mono" font-size="13">
+    <text x="0" y="0" fill="#38bdf8" font-weight="600">=== Level 4: Merging Branches ===</text>
+    <text x="0" y="22" fill="#94a3b8">Your feature branch is ready! Switch back to "main" and merge "feature" into "main" to combine the histories.</text>
+
+    <text x="0" y="48" fill="#38bdf8" font-weight="600">$ git status</text>
+    <text x="0" y="68" fill="#94a3b8">On branch main</text>
+    <text x="0" y="88" fill="#94a3b8">nothing to commit, working tree clean</text>
+
+    <text x="0" y="114" fill="#38bdf8" font-weight="600">$ git merge feature</text>
+    <text x="0" y="134" fill="#4ade80">Merge made by the 'ort' strategy.</text>
+    <text x="0" y="154" fill="#4ade80">[main 8f4a2d] Merge branch 'feature'</text>
+  </g>
+
+  <!-- Terminal Input Row -->
+  <rect x="381" y="760" width="899" height="40" fill="#090d16" />
+  <line x1="381" y1="760" x2="1280" y2="760" stroke="#1e293b" stroke-width="1" />
+  <text x="397" y="785" fill="#4ade80" font-size="13.5" class="mono">player@gitquest:~/repo (main)$</text>
+  <text x="655" y="785" fill="#64748b" font-size="13.5" class="mono">Type a git command (e.g. git init, help) and press Enter...</text>
+</svg>
