@@ -16,6 +16,7 @@ Whether you've ever panicked over a detached `HEAD`, wondered where staged files
 * 🕸️ **Live Commit DAG Visualizer** — Watch commits, parent pointers, branches (`main`, `feature`), and `HEAD` animate in real time as you type commands.
 * 📦 **3-Tree State Inspector** — See files move step-by-step across the **Working Directory**, **Staging Area (Index)**, and **HEAD Commit Snapshot**.
 * 💻 **Built-In Terminal + Quick-Action Buttons** — Type real commands (`git add`, `git commit`, `git checkout -b`, `git merge`, `git revert`, `git reset`) with command history (`↑`/`↓`) or click quick-fill buttons.
+* 📱 **Mobile-Ready & Android APK Included** — Responsive mobile UI with touch-friendly controls, view switcher tabs, and a standalone Android APK (`gitquest-android.apk`) targeting Android 15 (API 35).
 * ⚡ **Zero Dependencies** — Runs out of the box with pure Node.js (`http`, `fs`, `path`) or directly in any modern browser.
 
 ---
@@ -33,6 +34,53 @@ node server.js
 Then open **[http://localhost:3000](http://localhost:3000)** in your browser and start playing!
 
 *(Tip: You can also set a custom port with `PORT=8080 npm start` or open `public/index.html` directly in your browser.)*
+
+---
+
+## 📱 Android App: Build & Install the APK
+
+GitQuest includes both a pre-built Android package (`gitquest-android.apk`) and a self-contained build pipeline targeting **Android 15 (API 35, `minSdkVersion 24`)**.
+
+### 🔨 How to Build the Android APK
+
+#### Option 1: Zero-Dependency Python Builder (Fastest)
+You can build and sign `gitquest-android.apk` directly using Python 3 and OpenSSL (no Android SDK or Gradle download required):
+
+```bash
+npm run build:apk
+# or run the builder script directly:
+python3 scripts/build_apk.py
+```
+
+What this does:
+1. Syncs the latest `public/index.html` into `android/app/src/main/assets/index.html`.
+2. Compiles the binary `AndroidManifest.xml`, 4-byte aligned `resources.arsc`, and Dalvik bytecode `classes.dex` (`com.gitquest.app.MainActivity`).
+3. Signs the package with both **JAR Signature (v1)** and **APK Signature Scheme v2** (`APK Sig Block 42`) and outputs `gitquest-android.apk` in the project root.
+
+#### Option 2: Android Studio / Gradle
+A standard Android Gradle project is also included in the `android/` directory:
+1. Open the `android/` folder in **Android Studio**.
+2. Let Gradle sync, then select **Build → Build Bundle(s) / APK(s) → Build APK(s)** (or run `./gradlew assembleDebug` from `android/`).
+
+---
+
+### 📲 How to Install the APK on Your Android Phone
+
+#### Method 1: Direct File Transfer (No Computer Tools Needed)
+1. Copy `gitquest-android.apk` to your Android phone via **USB file transfer**, **Google Drive**, **Quick Share**, or **Bluetooth**.
+2. On your phone, open the **Files** (or **My Files**) app and tap `gitquest-android.apk`.
+3. If prompted with *"For your security, your phone currently isn't allowed to install unknown apps from this source"*, tap **Settings** and toggle **Allow from this source** on.
+4. Tap **Install**, then tap **Open** to launch **GitQuest**!
+5. *(Note)*: Because the APK is signed with a local debug certificate, if **Google Play Protect** asks *"Scan app?"* or *"Install anyway?"*, tap **More details → Install anyway**.
+
+#### Method 2: Install via ADB (Android Debug Bridge)
+1. On your Android phone, enable **Developer Options** (*Settings → About phone → tap **Build number** 7 times*).
+2. Go to *Settings → System → Developer options* and enable **USB debugging**.
+3. Connect your phone to your computer via USB and run:
+   ```bash
+   adb install -r gitquest-android.apk
+   ```
+4. Launch **GitQuest** from your phone's app drawer!
 
 ---
 
@@ -82,13 +130,25 @@ git log                     # View commit history and branch pointers
 
 ```text
 .
-├── package.json        # Scripts (`npm start`, `npm run dev`)
-├── server.js           # Lightweight Node.js static server
+├── package.json          # Scripts (`npm start`, `npm run dev`, `npm run build:apk`)
+├── server.js             # Lightweight Node.js static server
+├── gitquest-android.apk  # Ready-to-install signed Android APK (API 35)
+├── scripts/
+│   └── build_apk.py      # Zero-dependency Android APK compiler & v1/v2 signer
+├── android/              # Android Studio / Gradle project wrapper
+│   ├── build.gradle
+│   ├── settings.gradle
+│   └── app/
+│       ├── build.gradle
+│       └── src/main/
+│           ├── AndroidManifest.xml
+│           ├── assets/index.html
+│           └── java/com/gitquest/app/MainActivity.java
 ├── public/
-│   ├── index.html      # Game UI, SVG DAG graph, and GitSandbox engine
-│   ├── screenshot.png  # Application screenshot
-│   └── screenshot.svg  # Vector source for the application screenshot
-└── README.md           # You are here!
+│   ├── index.html        # Mobile-responsive Game UI, SVG DAG graph, and GitSandbox engine
+│   ├── screenshot.png    # Application screenshot
+│   └── screenshot.svg    # Vector source for the application screenshot
+└── README.md             # You are here!
 ```
 
 ---

@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1120" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>GitQuest — Interactive Git Learning Game & Sandbox</title>
   <style>
     :root {
@@ -242,6 +246,14 @@
       overflow: hidden;
     }
 
+    .graph-scroll {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
     .pane-header {
       padding: 10px 16px;
       font-size: 0.8rem;
@@ -253,12 +265,15 @@
       justify-content: space-between;
       align-items: center;
       background: rgba(11, 17, 32, 0.6);
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     #graph-svg {
-      width: 100%;
+      display: block;
+      min-width: 100%;
+      min-height: 220px;
       height: 100%;
-      flex: 1;
     }
 
     .state-pane {
@@ -427,23 +442,222 @@
       cursor: pointer;
       font-size: 0.82rem;
     }
+
+    .run-btn {
+      background: var(--accent);
+      color: #0f172a;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-family: var(--font-sans);
+      font-size: 0.8rem;
+      cursor: pointer;
+      margin-left: 8px;
+      white-space: nowrap;
+    }
+
+    .run-btn:active {
+      transform: scale(0.97);
+    }
+
+    .mobile-nav {
+      display: none;
+      background: var(--panel-alt);
+      border-bottom: 1px solid var(--border);
+      padding: 6px 12px;
+      gap: 6px;
+    }
+
+    .mobile-tab {
+      flex: 1;
+      background: var(--panel);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .mobile-tab.active {
+      background: rgba(56, 189, 248, 0.16);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* Responsive Mobile & Tablet Layout */
+    @media (max-width: 960px) {
+      body {
+        height: 100dvh;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+
+      header {
+        padding: 10px 12px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        position: sticky;
+        top: 0;
+        z-index: 30;
+      }
+
+      .brand {
+        font-size: 1.08rem;
+        justify-content: space-between;
+      }
+
+      .level-bar {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 2px;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .level-btn {
+        flex: 0 0 auto;
+        padding: 7px 12px;
+        font-size: 0.82rem;
+      }
+
+      .mobile-nav {
+        display: flex;
+        position: sticky;
+        top: 85px;
+        z-index: 25;
+      }
+
+      main {
+        display: flex;
+        flex-direction: column;
+        overflow: visible;
+        flex: 1;
+      }
+
+      .left-col {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding: 12px;
+        gap: 12px;
+        overflow: visible;
+      }
+
+      .right-col {
+        display: flex;
+        flex-direction: column;
+        overflow: visible;
+        flex: 1;
+      }
+
+      .visualizer {
+        display: flex;
+        flex-direction: column;
+        overflow: visible;
+      }
+
+      .graph-pane {
+        min-height: 230px;
+        height: 240px;
+      }
+
+      .state-pane {
+        border-left: none;
+        border-top: 1px solid var(--border);
+        overflow: visible;
+      }
+
+      .state-zones {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 8px;
+        padding: 10px;
+      }
+
+      .terminal-pane {
+        min-height: 260px;
+        flex: 1;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+
+      .quick-actions {
+        padding: 8px 10px;
+        gap: 8px;
+      }
+
+      .quick-btn {
+        padding: 6px 10px;
+        font-size: 0.78rem;
+      }
+
+      .term-input-row {
+        padding: 10px 12px;
+      }
+
+      .prompt-label {
+        font-size: 0.76rem;
+        max-width: 125px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #term-input {
+        font-size: 16px; /* Prevents iOS/Android auto-zoom on focus */
+      }
+
+      /* Mobile View Filter Modes */
+      body[data-mobile-view="mission"] .right-col { display: none; }
+      body[data-mobile-view="visualizer"] .left-col,
+      body[data-mobile-view="visualizer"] .terminal-pane { display: none; }
+      body[data-mobile-view="visualizer"] .graph-pane { height: 340px; }
+      body[data-mobile-view="terminal"] .left-col,
+      body[data-mobile-view="terminal"] .visualizer { display: none; }
+      body[data-mobile-view="terminal"] .terminal-pane { min-height: calc(100dvh - 150px); }
+    }
+
+    @media (max-width: 480px) {
+      .brand span.badge {
+        font-size: 0.68rem;
+        padding: 2px 6px;
+      }
+
+      .state-zones {
+        grid-template-columns: 1fr;
+      }
+
+      .prompt-label {
+        display: none;
+      }
+    }
   </style>
 </head>
-<body>
+<body data-mobile-view="all">
   <header>
     <div class="brand">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="6" cy="6" r="3"></circle>
-        <circle cx="6" cy="18" r="3"></circle>
-        <circle cx="18" cy="12" r="3"></circle>
-        <line x1="6" y1="9" x2="6" y2="15"></line>
-        <path d="M6 9a9 9 0 0 0 9 3"></path>
-      </svg>
-      GitQuest
+      <div style="display:flex;align-items:center;gap:8px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="6" cy="6" r="3"></circle>
+          <circle cx="6" cy="18" r="3"></circle>
+          <circle cx="18" cy="12" r="3"></circle>
+          <line x1="6" y1="9" x2="6" y2="15"></line>
+          <path d="M6 9a9 9 0 0 0 9 3"></path>
+        </svg>
+        GitQuest
+      </div>
       <span class="badge">Interactive Git Game + Sandbox</span>
     </div>
     <div class="level-bar" id="level-bar"></div>
   </header>
+
+  <nav class="mobile-nav" aria-label="Mobile View Switcher">
+    <button class="mobile-tab active" data-view="all">📱 All</button>
+    <button class="mobile-tab" data-view="mission">🎯 Mission</button>
+    <button class="mobile-tab" data-view="visualizer">🕸️ Graph & Trees</button>
+    <button class="mobile-tab" data-view="terminal">💻 Terminal</button>
+  </nav>
 
   <main>
     <aside class="left-col">
@@ -489,7 +703,9 @@
             <span>Commit Graph (DAG Visualizer)</span>
             <span id="repo-head-indicator">Repo not initialized</span>
           </div>
-          <svg id="graph-svg"></svg>
+          <div class="graph-scroll" id="graph-scroll">
+            <svg id="graph-svg"></svg>
+          </div>
         </div>
 
         <div class="state-pane">
@@ -540,7 +756,8 @@
         <div class="term-output" id="term-output"></div>
         <div class="term-input-row">
           <span class="prompt-label" id="prompt-label">player@gitquest:~$</span>
-          <input type="text" id="term-input" placeholder="Type a git command (e.g. git init, help) and press Enter..." autofocus autocomplete="off" spellcheck="false" />
+          <input type="text" id="term-input" placeholder="Type a git command (e.g. git init, help)..." autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="send" />
+          <button type="button" class="run-btn" id="run-cmd-btn">Run ↵</button>
         </div>
       </div>
     </section>
@@ -1108,14 +1325,19 @@
 
     function renderGraph() {
       const svg = document.getElementById('graph-svg');
+      const scrollEl = document.getElementById('graph-scroll');
       svg.innerHTML = '';
 
       if (!git.initialized) {
+        svg.removeAttribute('width');
+        svg.removeAttribute('height');
         svg.innerHTML = `<text x="50%" y="50%" text-anchor="middle" fill="#64748b" font-size="14">Run "git init" to initialize the repository graph</text>`;
         return;
       }
 
       if (git.commits.length === 0) {
+        svg.removeAttribute('width');
+        svg.removeAttribute('height');
         svg.innerHTML = `<text x="50%" y="50%" text-anchor="middle" fill="#94a3b8" font-size="14">Repository initialized on branch "${git.HEAD.ref}". Make your first commit!</text>`;
         return;
       }
@@ -1124,10 +1346,15 @@
       const laneMap = {};
       branchNames.forEach((b, idx) => { laneMap[b] = idx; });
 
-      const startX = 80;
-      const stepX = 120;
-      const baseY = 120;
-      const laneY = 85;
+      const startX = 70;
+      const stepX = 115;
+      const baseY = 95;
+      const laneY = 80;
+
+      const maxWidth = Math.max(360, startX + git.commits.length * stepX + 60);
+      const maxHeight = Math.max(210, baseY + branchNames.length * laneY + 40);
+      svg.setAttribute('width', maxWidth);
+      svg.setAttribute('height', maxHeight);
 
       const positions = {};
       git.commits.forEach((c, idx) => {
@@ -1220,6 +1447,10 @@
           svg.appendChild(bTxt);
         });
       });
+
+      if (scrollEl) {
+        scrollEl.scrollLeft = scrollEl.scrollWidth;
+      }
     }
 
     function updateUI() {
@@ -1247,6 +1478,14 @@
 
     // --- Event Listeners ---
     const inputEl = document.getElementById('term-input');
+    const isMobileScreen = () => window.matchMedia('(max-width: 960px)').matches;
+
+    function focusInputIfDesktop() {
+      if (!isMobileScreen()) {
+        inputEl.focus();
+      }
+    }
+
     inputEl.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         executeCommand(inputEl.value);
@@ -1269,27 +1508,42 @@
       }
     });
 
+    document.getElementById('run-cmd-btn').addEventListener('click', () => {
+      executeCommand(inputEl.value);
+      inputEl.value = '';
+      focusInputIfDesktop();
+    });
+
     document.querySelectorAll('.quick-btn[data-cmd]').forEach(btn => {
       btn.addEventListener('click', () => {
         executeCommand(btn.getAttribute('data-cmd'));
-        inputEl.focus();
+        focusInputIfDesktop();
+      });
+    });
+
+    document.querySelectorAll('.mobile-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.mobile-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        document.body.setAttribute('data-mobile-view', tab.getAttribute('data-view'));
       });
     });
 
     document.getElementById('reset-level-btn').addEventListener('click', () => {
       loadLevel(currentLevelIndex);
-      inputEl.focus();
+      focusInputIfDesktop();
     });
 
     document.getElementById('next-level-btn').addEventListener('click', () => {
       if (currentLevelIndex < LEVELS.length - 1) {
         loadLevel(currentLevelIndex + 1);
-        inputEl.focus();
+        focusInputIfDesktop();
       }
     });
 
     // Initialize Level 1
     loadLevel(0);
+    focusInputIfDesktop();
   </script>
 </body>
 </html>
