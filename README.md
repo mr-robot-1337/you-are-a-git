@@ -39,7 +39,11 @@ Then open **[http://localhost:3000](http://localhost:3000)** in your browser and
 
 ## 📱 Android App: Build & Install the APK
 
-GitQuest includes both a pre-built Android package (`gitquest-android.apk`) and a self-contained build pipeline targeting **Android 15 (API 35, `minSdkVersion 24`)**.
+<p align="left">
+  <img src="public/icon.png" alt="GitQuest Android App Icon" width="96" height="96" />
+</p>
+
+GitQuest includes a custom **GitQuest** launcher icon (`@drawable/ic_launcher`), a pre-built Android package (`gitquest-android.apk`), and a self-contained build pipeline targeting **Android 15 (API 35, `minSdkVersion 24`)**.
 
 ### 🔨 How to Build the Android APK
 
@@ -54,8 +58,9 @@ python3 scripts/build_apk.py
 
 What this does:
 1. Syncs the latest `public/index.html` into `android/app/src/main/assets/index.html`.
-2. Compiles the binary `AndroidManifest.xml`, 4-byte aligned `resources.arsc`, and Dalvik bytecode `classes.dex` (`com.gitquest.app.MainActivity`).
-3. Signs the package with both **JAR Signature (v1)** and **APK Signature Scheme v2** (`APK Sig Block 42`) and outputs `gitquest-android.apk` in the project root.
+2. Generates the custom 192×192 **GitQuest** app icon (`public/icon.png` and `android/app/src/main/res/drawable/ic_launcher.png`).
+3. Compiles the binary `AndroidManifest.xml`, 4-byte aligned `resources.arsc` (`0x7f010000` → `@drawable/ic_launcher`), and Dalvik bytecode `classes.dex` (`com.gitquest.app.MainActivity`).
+4. Signs the package with both **JAR Signature (v1)** and **APK Signature Scheme v2** (`APK Sig Block 42`) and outputs `gitquest-android.apk` in the project root.
 
 #### Option 2: Android Studio / Gradle
 A standard Android Gradle project is also included in the `android/` directory:
@@ -143,9 +148,11 @@ git log                     # View commit history and branch pointers
 │       └── src/main/
 │           ├── AndroidManifest.xml
 │           ├── assets/index.html
+│           ├── res/drawable/ic_launcher.png
 │           └── java/com/gitquest/app/MainActivity.java
 ├── public/
 │   ├── index.html        # Mobile-responsive Game UI, SVG DAG graph, and GitSandbox engine
+│   ├── icon.png          # Custom GitQuest app & launcher icon
 │   ├── screenshot.png    # Application screenshot
 │   └── screenshot.svg    # Vector source for the application screenshot
 └── README.md             # You are here!

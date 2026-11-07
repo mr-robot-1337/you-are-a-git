@@ -32,6 +32,184 @@ def align4(data: bytearray) -> None:
         data.append(0)
 
 
+def build_gitquest_icon_png(size: int = 192) -> bytes:
+    """
+    Generate a fun 192x192 RGBA PNG app icon in a "GitQuest" style:
+    - Rounded squircle dark-navy badge with glowing cyan/purple border
+    - Crossed pixel-quest golden sword silhouette + glowing Git branch/merge DAG
+    - Three vibrant commit nodes (main cyan, feature purple, HEAD emerald/gold)
+    """
+    import math
+
+    w = h = size
+    pixels = bytearray(w * h * 4)
+
+    def blend(x: int, y: int, r: int, g: int, b: int, a: float) -> None:
+        if x < 0 or x >= w or y < 0 or y >= h or a <= 0.0:
+            return
+        if a > 1.0:
+            a = 1.0
+        idx = (y * w + x) * 4
+        dst_r = pixels[idx]
+        dst_g = pixels[idx + 1]
+        dst_b = pixels[idx + 2]
+        dst_a = pixels[idx + 3] / 255.0
+
+        out_a = a + dst_a * (1.0 - a)
+        if out_a > 0:
+            out_r = (r * a + dst_r * dst_a * (1.0 - a)) / out_a
+            out_g = (g * a + dst_g * dst_a * (1.0 - a)) / out_a
+            out_b = (b * a + dst_b * dst_a * (1.0 - a)) / out_a
+            pixels[idx] = int(min(255, max(0, out_r)))
+            pixels[idx + 1] = int(min(255, max(0, out_g)))
+            pixels[idx + 2] = int(min(255, max(0, out_b)))
+            pixels[idx + 3] = int(min(255, max(0, out_a * 255.0)))
+
+    def draw_circle(cx: float, cy: float, radius: float, color: tuple[int, int, int], glow: float = 1.5) -> None:
+        r, g, b = color
+        x0 = max(0, int(cx - radius - glow - 2))
+        x1 = min(w - 1, int(cx + radius + glow + 2))
+        y0 = max(0, int(cy - radius - glow - 2))
+        y1 = min(h - 1, int(cy + radius + glow + 2))
+        for py in range(y0, y1 + 1):
+            for px in range(x0, x1 + 1):
+                dist = math.hypot(px - cx, py - cy)
+                if dist <= radius:
+                    blend(px, py, r, g, b, 1.0)
+                elif dist <= radius + glow:
+                    alpha = 1.0 - (dist - radius) / glow
+                    blend(px, py, r, g, b, alpha * alpha)
+
+    def draw_segment(
+        x1: float, y1: float, x2: float, y2: float, thickness: float, color: tuple[int, int, int]
+    ) -> None:
+        r, g, b = color
+        pad = int(thickness + 4)
+        xmin = max(0, int(min(x1, x2)) - pad)
+        xmax = min(w - 1, int(max(x1, x2)) + pad)
+        ymin = max(0, int(min(y1, y2)) - pad)
+        ymax = min(h - 1, int(max(y1, y2)) + pad)
+        dx = x2 - x1
+        dy = y2 - y1
+        len_sq = dx * dx + dy * dy
+        for py in range(ymin, ymax + 1):
+            for px in range(xmin, xmax + 1):
+                if len_sq == 0:
+                    dist = math.hypot(px - x1, py - y1)
+                else:
+                    t = max(0.0, min(1.0, ((px - x1) * dx + (py - y1) * dy) / len_sq))
+                    proj_x = x1 + t * dx
+                    proj_y = y1 + t * dy
+                    dist = math.hypot(px - proj_x, py - proj_y)
+                if dist <= thickness:
+                    blend(px, py, r, g, b, 1.0)
+                elif dist <= thickness + 1.8:
+                    alpha = 1.0 - (dist - thickness) / 1.8
+                    blend(px, py, r, g, b, alpha)
+
+    # 1. Draw rounded-square squircle background with radial glow + neon border
+    margin = 10.0
+    corner_r = 40.0
+    for y in range(h):
+        for x in range(w):
+            # Signed distance to rounded box
+            qx = abs(x - w / 2.0) - (w / 2.0 - margin - corner_r)
+            qy = abs(y - h / 2.0) - (h / 2.0 - margin - corner_r)
+            dist = math.hypot(max(qx, 0.0), max(qy, 0.0)) + min(max(qx, qy), 0.0) - corner_r
+
+            if dist <= 1.5:
+                edge_alpha = 1.0 if dist <= -1.0 else (1.5 - dist) / 2.5
+                # Radial background gradient (#1e293b center -> #0b1120 edge)
+                norm_d = min(1.0, math.hypot(x - w * 0.5, y - h * 0.45) / (w * 0.5))
+                bg_r = int(30 * (1.0 - norm_d) + 11 * norm_d)
+                bg_g = int(41 * (1.0 - norm_d) + 17 * norm_d)
+                bg_b = int(59 * (1.0 - norm_d) + 32 * norm_d)
+                blend(x, y, bg_r, bg_g, bg_b, edge_alpha)
+
+                # Outer border ring (-6.0 <= dist <= 0.0)
+                if -5.5 <= dist <= 0.5:
+                    t_grad = (x + y) / (w + h)
+                    br_r = int(56 * (1.0 - t_grad) + 192 * t_grad)
+                    br_g = int(189 * (1.0 - t_grad) + 132 * t_grad)
+                    br_b = int(248 * (1.0 - t_grad) + 252 * t_grad)
+                    ring_a = 1.0 - abs(dist + 2.5) / 3.2
+                    if ring_a > 0:
+                        blend(x, y, br_r, br_g, br_b, ring_a * edge_alpha)
+
+    # 2. Draw subtle diagonal quest sword blade behind the Git graph
+    draw_segment(42, 150, 148, 44, 5.5, (250, 204, 21))    # Golden sword core
+    draw_segment(42, 150, 148, 44, 2.5, (254, 240, 138))   # Bright blade highlight
+    # Sword crossguard & pommel
+    draw_segment(50, 118, 76, 144, 4.5, (234, 179, 8))
+    draw_circle(38, 154, 7.5, (250, 204, 21))
+
+    # 3. Draw curved feature branch (cubic Bezier from bottom-left node -> right feature node -> top HEAD node)
+    p0 = (64.0, 142.0)
+    p1 = (134.0, 96.0)
+    p2 = (64.0, 50.0)
+
+    # Bezier 1: bottom commit (64, 142) -> feature commit (134, 96)
+    steps = 60
+    prev = p0
+    for i in range(1, steps + 1):
+        t = i / steps
+        # S-curve control points: (64, 110) and (134, 128)
+        u = 1.0 - t
+        bx = (u**3) * p0[0] + 3 * (u**2) * t * 64.0 + 3 * u * (t**2) * 134.0 + (t**3) * p1[0]
+        by = (u**3) * p0[1] + 3 * (u**2) * t * 110.0 + 3 * u * (t**2) * 128.0 + (t**3) * p1[1]
+        draw_segment(prev[0], prev[1], bx, by, 5.5, (192, 132, 252))  # Purple feature branch
+        prev = (bx, by)
+
+    # Bezier 2: feature commit (134, 96) -> merge into top HEAD commit (64, 50)
+    prev = p1
+    for i in range(1, steps + 1):
+        t = i / steps
+        u = 1.0 - t
+        bx = (u**3) * p1[0] + 3 * (u**2) * t * 134.0 + 3 * u * (t**2) * 64.0 + (t**3) * p2[0]
+        by = (u**3) * p1[1] + 3 * (u**2) * t * 64.0 + 3 * u * (t**2) * 82.0 + (t**3) * p2[1]
+        draw_segment(prev[0], prev[1], bx, by, 5.5, (74, 222, 128))   # Green merge branch
+        prev = (bx, by)
+
+    # 4. Draw main trunk line (vertical on left: (64, 152) -> (64, 42))
+    draw_segment(64.0, 146.0, 64.0, 50.0, 6.0, (56, 189, 248))        # Cyan main branch
+
+    # 5. Draw commit nodes (outer glow, solid ring, dark inner core, bright center dot)
+    # Bottom root commit (Cyan)
+    draw_circle(64.0, 142.0, 16.0, (56, 189, 248), glow=3.0)
+    draw_circle(64.0, 142.0, 9.0, (15, 23, 42), glow=1.0)
+    draw_circle(64.0, 142.0, 4.5, (186, 230, 253), glow=1.0)
+
+    # Right feature commit (Purple)
+    draw_circle(134.0, 96.0, 16.0, (192, 132, 252), glow=3.0)
+    draw_circle(134.0, 96.0, 9.0, (15, 23, 42), glow=1.0)
+    draw_circle(134.0, 96.0, 4.5, (243, 232, 255), glow=1.0)
+
+    # Top HEAD merge commit (Emerald Green + Gold Quest Ring)
+    draw_circle(64.0, 50.0, 18.0, (74, 222, 128), glow=3.5)
+    draw_circle(64.0, 50.0, 10.5, (15, 23, 42), glow=1.0)
+    draw_circle(64.0, 50.0, 5.5, (250, 204, 21), glow=1.2)
+
+    # Encode RGBA buffer as standard PNG
+    raw_scanlines = bytearray()
+    for y in range(h):
+        raw_scanlines.append(0)  # Filter type 0 (None)
+        row_start = y * w * 4
+        raw_scanlines.extend(pixels[row_start : row_start + w * 4])
+
+    def png_chunk(chunk_type: bytes, data: bytes) -> bytes:
+        crc = zlib.crc32(chunk_type + data) & 0xFFFFFFFF
+        return struct.pack(">I", len(data)) + chunk_type + data + struct.pack(">I", crc)
+
+    ihdr = struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0)  # 8-bit RGBA
+    idat = zlib.compress(bytes(raw_scanlines), 9)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + png_chunk(b"IHDR", ihdr)
+        + png_chunk(b"IDAT", idat)
+        + png_chunk(b"IEND", b"")
+    )
+
+
 def build_axml() -> bytes:
     """Build binary AndroidManifest.xml (AXML) targeting SDK 35 (minSdk 24)."""
     # Attribute names with android.R.attr resource IDs in strictly ascending ID order
@@ -173,8 +351,8 @@ def build_axml() -> bytes:
                 # @android:style/Theme.DeviceDefault.NoActionBar = 0x01030129
                 attr_int(ns_uri, "theme", 0x01030129, 0x01),
                 attr_str(ns_uri, "label", "GitQuest"),
-                # @android:drawable/sym_def_app_icon = 0x01080093
-                attr_int(ns_uri, "icon", 0x01080093, 0x01),
+                # @drawable/ic_launcher = 0x7F010000
+                attr_int(ns_uri, "icon", 0x7F010000, 0x01),
                 attr_int(ns_uri, "hardwareAccelerated", 0xFFFFFFFF, 0x12),
             ],
             11,
@@ -183,6 +361,8 @@ def build_axml() -> bytes:
             "activity",
             [
                 attr_str(ns_uri, "label", "GitQuest"),
+                # @drawable/ic_launcher = 0x7F010000
+                attr_int(ns_uri, "icon", 0x7F010000, 0x01),
                 attr_str(ns_uri, "name", "com.gitquest.app.MainActivity"),
                 attr_int(ns_uri, "exported", 0xFFFFFFFF, 0x12),
                 # orientation (0x80) | keyboardHidden (0x20) | screenSize (0x400) = 0x04A0
@@ -206,17 +386,62 @@ def build_axml() -> bytes:
     return struct.pack("<HHI", 0x0003, 8, 8 + len(body)) + body
 
 
+def build_string_pool_utf16(strings: list[str]) -> bytes:
+    """Build a RES_STRING_POOL_TYPE (0x0001) chunk in UTF-16LE format."""
+    encoded = []
+    offsets = []
+    cur = 0
+    for s in strings:
+        offsets.append(cur)
+        raw = s.encode("utf-16le")
+        entry = struct.pack("<H", len(s)) + raw + b"\x00\x00"
+        encoded.append(entry)
+        cur += len(entry)
+
+    blob = bytearray(b"".join(encoded))
+    align4(blob)
+
+    count = len(strings)
+    strings_start = 28 + 4 * count
+    chunk_size = strings_start + len(blob)
+    return (
+        struct.pack("<HHIIIIII", 0x0001, 28, chunk_size, count, 0, 0, strings_start, 0)
+        + b"".join(struct.pack("<I", o) for o in offsets)
+        + bytes(blob)
+    )
+
+
 def build_resources_arsc() -> bytes:
-    """Build a minimal valid resources.arsc (RES_TABLE_TYPE = 0x0002) for com.gitquest.app."""
-    # Empty global string pool (28 bytes)
-    global_sp = struct.pack("<HHIIIIII", 0x0001, 28, 28, 0, 0, 0, 28, 0)
-    type_sp = struct.pack("<HHIIIIII", 0x0001, 28, 28, 0, 0, 0, 28, 0)
-    key_sp = struct.pack("<HHIIIIII", 0x0001, 28, 28, 0, 0, 0, 28, 0)
+    """
+    Build valid resources.arsc (RES_TABLE_TYPE = 0x0002) for com.gitquest.app
+    defining 0x7f010000 -> @drawable/ic_launcher ("res/drawable/ic_launcher.png").
+    """
+    global_sp = build_string_pool_utf16(["res/drawable/ic_launcher.png"])
+    type_sp = build_string_pool_utf16(["drawable"])
+    key_sp = build_string_pool_utf16(["ic_launcher"])
+
+    # RES_TABLE_TYPE_SPEC_TYPE (0x0202) for type id=1 ("drawable"), 1 entry
+    type_spec_chunk = struct.pack("<HHIBBHII", 0x0202, 16, 20, 1, 0, 0, 1, 0)
+
+    # RES_TABLE_TYPE_TYPE (0x0201) for type id=1 ("drawable"), 1 entry
+    # ResTable_type header = 20 bytes + 48-byte ResTable_config = 68 bytes
+    config_48 = struct.pack("<I", 48) + (b"\x00" * 44)
+    entries_start = 68 + 4  # 1 uint32 offset (0)
+    # ResTable_entry (8 bytes: size=8, flags=0, key=0) + Res_value (8 bytes: size=8, res0=0, dataType=0x03 STRING, data=0)
+    entry_and_val = struct.pack("<HHIHBBI", 8, 0, 0, 8, 0, 0x03, 0)
+    type_chunk_size = entries_start + len(entry_and_val)
+    type_chunk = (
+        struct.pack("<HHIBBHII", 0x0201, 68, type_chunk_size, 1, 0, 0, 1, entries_start)
+        + config_48
+        + struct.pack("<I", 0)
+        + entry_and_val
+    )
 
     pkg_name = "com.gitquest.app".encode("utf-16le")
     pkg_name_padded = pkg_name + b"\x00" * (256 - len(pkg_name))
     pkg_header_size = 288
-    pkg_chunk_size = pkg_header_size + len(type_sp) + len(key_sp)
+    pkg_body = type_sp + key_sp + type_spec_chunk + type_chunk
+    pkg_chunk_size = pkg_header_size + len(pkg_body)
 
     pkg_header = (
         struct.pack("<HHI", 0x0200, pkg_header_size, pkg_chunk_size)
@@ -225,13 +450,13 @@ def build_resources_arsc() -> bytes:
         + struct.pack(
             "<IIIII",
             pkg_header_size,                  # typeStrings offset
-            0,                                # lastPublicType
+            1,                                # lastPublicType
             pkg_header_size + len(type_sp),   # keyStrings offset
-            0,                                # lastPublicKey
+            1,                                # lastPublicKey
             0,                                # typeIdOffset
         )
     )
-    pkg_chunk = pkg_header + type_sp + key_sp
+    pkg_chunk = pkg_header + pkg_body
 
     total_size = 12 + len(global_sp) + len(pkg_chunk)
     table_header = struct.pack("<HHII", 0x0002, 12, total_size, 1)
@@ -859,6 +1084,16 @@ def main() -> None:
     with open(html_src, "rb") as f:
         index_html_bytes = f.read()
 
+    icon_png_bytes = build_gitquest_icon_png(192)
+    public_icon_path = os.path.join(repo_root, "public", "icon.png")
+    with open(public_icon_path, "wb") as f:
+        f.write(icon_png_bytes)
+
+    res_drawable_dir = os.path.join(repo_root, "android", "app", "src", "main", "res", "drawable")
+    os.makedirs(res_drawable_dir, exist_ok=True)
+    with open(os.path.join(res_drawable_dir, "ic_launcher.png"), "wb") as f:
+        f.write(icon_png_bytes)
+
     axml_bytes = build_axml()
     arsc_bytes = build_resources_arsc()
     dex_bytes = build_classes_dex()
@@ -866,6 +1101,7 @@ def main() -> None:
     core_entries = {
         "AndroidManifest.xml": axml_bytes,
         "resources.arsc": arsc_bytes,
+        "res/drawable/ic_launcher.png": icon_png_bytes,
         "classes.dex": dex_bytes,
         "assets/index.html": index_html_bytes,
     }
@@ -905,8 +1141,9 @@ def main() -> None:
         mf_bytes, sf_bytes, rsa_bytes = create_v1_signature_files(core_entries, key_pem, cert_pem)
 
         zip_entries = [
-            # resources.arsc MUST be uncompressed and 4-byte aligned for targetSdk >= 30
+            # resources.arsc and PNG drawables stored uncompressed & 4-byte aligned for targetSdk >= 30
             ("resources.arsc", arsc_bytes, True),
+            ("res/drawable/ic_launcher.png", icon_png_bytes, True),
             ("AndroidManifest.xml", axml_bytes, False),
             ("classes.dex", dex_bytes, False),
             ("assets/index.html", index_html_bytes, False),
