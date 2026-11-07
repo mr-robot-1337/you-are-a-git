@@ -12,10 +12,10 @@ Whether you've ever panicked over a detached `HEAD`, wondered where staged files
 
 ## ✨ What's Inside?
 
-* 🎮 **5 Story-Driven Levels + Free-Play Sandbox** — Progress from initializing your first repository to branching, merging, and time-traveling out of production bugs.
-* 🕸️ **Live Commit DAG Visualizer** — Watch commits, parent pointers, branches (`main`, `feature`), and `HEAD` animate in real time as you type commands.
-* 📦 **3-Tree State Inspector** — See files move step-by-step across the **Working Directory**, **Staging Area (Index)**, and **HEAD Commit Snapshot**.
-* 💻 **Built-In Terminal + Quick-Action Buttons** — Type real commands (`git add`, `git commit`, `git checkout -b`, `git merge`, `git revert`, `git reset`) with command history (`↑`/`↓`) or click quick-fill buttons.
+* 🎮 **9 Story-Driven Levels + Free-Play Sandbox** — Progress from initializing your first repository to `git switch`, 3-way merge conflicts, `git rebase`, `git reflog` recovery, and repairing corrupted Git repositories.
+* 🕸️ **Live Commit DAG Visualizer** — Watch commits, parent pointers, branches (`main`, `feature`), tags, detached `HEAD`, and dangling commits animate in real time as you type commands.
+* 📦 **3-Tree State Inspector** — See files move step-by-step across the **Working Directory** (with conflict warnings), **Staging Area (Index)**, and **HEAD Commit Snapshot**.
+* 💻 **Built-In Terminal + Context-Aware Quick-Action Buttons** — Type real commands (`git switch`, `git add`, `git commit`, `git merge`, `git rebase`, `git reflog`, `git fsck`, `git stash`) with command history (`↑`/`↓`) or tap level-tailored quick-fill buttons.
 * 📱 **Mobile-Ready & Android APK Included** — Responsive mobile UI with touch-friendly controls, view switcher tabs, and a standalone Android APK (`gitquest-android.apk`) targeting Android 15 (API 35).
 * ⚡ **Zero Dependencies** — Runs out of the box with pure Node.js (`http`, `fs`, `path`) or directly in any modern browser.
 
@@ -95,10 +95,14 @@ A standard Android Gradle project is also included in the `android/` directory:
 | :--- | :--- | :--- |
 | **Level 1** | **Wake Up, Git!** | Initialize a repo (`git init`), create files (`touch`), and stage changes (`git add`). |
 | **Level 2** | **First Snapshot** | Permanently record snapshots into the commit history (`git commit -m "..."`). |
-| **Level 3** | **Branching Out** | Create isolated feature branches and move `HEAD` (`git checkout -b feature`). |
-| **Level 4** | **Merging Branches** | Combine divergent histories back into `main` (`git merge feature`). |
+| **Level 3** | **Branching Out (`git switch`)** | Create and switch to isolated feature branches (`git switch -c feature`). |
+| **Level 4** | **Merging Branches** | Switch back (`git switch main`) and combine divergent histories (`git merge feature`). |
 | **Level 5** | **Oops! Undo Commit** | Rescue `main` from a bad commit using `git revert HEAD` or `git reset --hard HEAD~1`. |
-| **🛠️ Sandbox** | **Free-Play Mode** | An open playground to experiment with branches, merges, resets, and commits! |
+| **Level 6** | **Clash of Code (Merge Conflict)** | Trigger a 3-way merge conflict, inspect markers (`cat`), resolve (`edit` or `--ours`/`--theirs`), stage, and commit. |
+| **Level 7** | **Linear History (`git rebase`)** | Replay feature commits cleanly onto `main` (`git rebase main`) and fast-forward merge. |
+| **Level 8** | **Lost Commit Rescue (Reflog)** | Recover a hard-reset orphaned commit using `git reflog` / `git fsck` and `git reset --hard HEAD@{1}`. |
+| **Level 9** | **Corrupted Repo Emergency** | Diagnose corruption (`git fsck`), remove `.git/index.lock`, rebuild a corrupted `.git/index`, reattach `HEAD`, and roll back `main`. |
+| **🛠️ Sandbox** | **Free-Play Mode** | An open playground to experiment with branches, conflicts, rebases, stashes, tags, reflogs, and more! |
 
 ---
 
@@ -108,25 +112,36 @@ Inside the GitQuest terminal, you can mix and match shell commands and Git comma
 
 ```bash
 # File & Directory Commands
-ls                          # List files in the working directory
-touch <file>                # Create or update a file
-edit <file> <text>          # Write custom text into a file
-rm <file>                   # Remove a file
-clear                       # Clear terminal output
-help                        # Show all available commands
+ls                               # List files in the working directory
+touch <file>                     # Create or update a file
+edit <file> <text>               # Write custom text into a file (or resolve conflicts)
+cat <file>                       # View file contents (including conflict markers)
+rm <file>                        # Remove a file (or rm .git/index.lock / rm .git/index)
+clear                            # Clear terminal output
+help                             # Show all available commands
 
 # Git Commands
-git init                    # Initialize the repository
-git status                  # Inspect untracked, modified, and staged files
-git add <file | .>          # Move file(s) into the Staging Area (Index)
-git commit -m "message"     # Create a new commit snapshot
-git branch [name]           # List branches or create a new branch
-git checkout [-b] <branch>  # Switch branches (or create & switch with -b)
-git switch [-c] <branch>    # Switch branches (modern syntax)
-git merge <branch>          # Merge target branch into current HEAD branch
-git reset --hard HEAD~1     # Move current branch pointer back 1 commit
-git revert HEAD             # Create a new commit that undoes the latest commit
-git log                     # View commit history and branch pointers
+git init                         # Initialize the repository
+git status                       # Inspect untracked, modified, staged, and conflicted files
+git diff [--staged]              # View working tree or staged diffs
+git add <file | .>               # Stage file(s) or mark conflicted file as resolved
+git restore [--staged] <file|.>  # Discard working changes or unstage file(s)
+git commit -m "message"          # Create a new commit snapshot
+git switch [-c] <branch>         # Switch branches (or create & switch with -c)
+git switch -                     # Switch back to previous branch
+git checkout [-b] <branch|ref>   # Switch branches or detach HEAD at commit
+git checkout --ours/--theirs <f> # Resolve merge conflict keeping ours or theirs
+git branch [-d] [name] [ref]     # List, create, or delete branches
+git merge <branch> [--abort]     # Merge target branch into HEAD (with conflict detection)
+git rebase <branch>              # Replay current branch commits onto target branch
+git cherry-pick <commit>         # Apply a specific commit onto the current branch
+git stash [pop|apply|list|drop]  # Stash and restore dirty working tree changes
+git tag [name]                   # List or create tags at HEAD
+git reset [--hard|--soft] <ref>  # Move current branch pointer to ref (HEAD~N, HEAD@{N}, hash)
+git revert <ref>                 # Create a new commit that undoes target commit
+git log [--oneline]              # View commit history, branches, and tags
+git reflog                       # View HEAD movement history to recover lost commits
+git fsck                         # Verify object database integrity & detect corruption
 ```
 
 ---

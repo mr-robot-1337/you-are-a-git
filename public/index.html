@@ -339,6 +339,13 @@
       color: var(--success);
     }
 
+    .file-pill.conflicted {
+      background: rgba(250, 204, 21, 0.18);
+      border-color: var(--warn);
+      color: var(--warn);
+      font-weight: 700;
+    }
+
     .terminal-pane {
       background: #050811;
       display: flex;
@@ -683,17 +690,20 @@
         <h3>Git & Sandbox Commands</h3>
         <div class="cmd-grid">
           <div class="cmd-item"><code>git init</code><span>Create empty Git repo</span></div>
-          <div class="cmd-item"><code>touch &lt;file&gt;</code><span>Create or modify a file</span></div>
-          <div class="cmd-item"><code>edit &lt;file&gt; &lt;txt&gt;</code><span>Write content to file</span></div>
-          <div class="cmd-item"><code>git status</code><span>Check working tree state</span></div>
-          <div class="cmd-item"><code>git add &lt;file|.&gt;</code><span>Stage file(s) for commit</span></div>
+          <div class="cmd-item"><code>touch / edit / cat</code><span>Create, edit, or view file</span></div>
+          <div class="cmd-item"><code>git status / diff</code><span>Inspect working tree &amp; diffs</span></div>
+          <div class="cmd-item"><code>git add &lt;file|.&gt;</code><span>Stage file(s) (or resolve)</span></div>
+          <div class="cmd-item"><code>git restore [--staged]</code><span>Discard changes or unstage</span></div>
           <div class="cmd-item"><code>git commit -m "msg"</code><span>Record staged snapshot</span></div>
-          <div class="cmd-item"><code>git branch &lt;name&gt;</code><span>Create a new branch</span></div>
-          <div class="cmd-item"><code>git checkout &lt;name&gt;</code><span>Switch branch (or -b)</span></div>
+          <div class="cmd-item"><code>git switch [-c] &lt;br&gt;</code><span>Switch (or create) branch</span></div>
+          <div class="cmd-item"><code>git branch [name]</code><span>List or create branches</span></div>
           <div class="cmd-item"><code>git merge &lt;branch&gt;</code><span>Merge branch into HEAD</span></div>
-          <div class="cmd-item"><code>git reset --hard HEAD~1</code><span>Move branch back 1 commit</span></div>
-          <div class="cmd-item"><code>git revert HEAD</code><span>Create inverse commit</span></div>
-          <div class="cmd-item"><code>git log</code><span>Show commit history</span></div>
+          <div class="cmd-item"><code>git rebase &lt;branch&gt;</code><span>Replay commits onto branch</span></div>
+          <div class="cmd-item"><code>git stash [pop|list]</code><span>Stash or restore dirty work</span></div>
+          <div class="cmd-item"><code>git reset --hard &lt;ref&gt;</code><span>Move branch pointer to ref</span></div>
+          <div class="cmd-item"><code>git revert HEAD</code><span>Create inverse undo commit</span></div>
+          <div class="cmd-item"><code>git reflog / log</code><span>View reflog or commit history</span></div>
+          <div class="cmd-item"><code>git fsck</code><span>Diagnose repo corruption</span></div>
         </div>
       </div>
     </aside>
@@ -743,16 +753,19 @@
       </div>
 
       <div class="terminal-pane">
-        <div class="quick-actions">
+        <div class="quick-actions" id="quick-actions">
           <span style="font-size:0.75rem;color:var(--muted);margin-right:4px;">Quick Fill:</span>
           <button class="quick-btn" data-cmd="git init">git init</button>
           <button class="quick-btn" data-cmd="touch app.js">touch app.js</button>
           <button class="quick-btn" data-cmd="git status">git status</button>
           <button class="quick-btn" data-cmd="git add .">git add .</button>
           <button class="quick-btn" data-cmd='git commit -m "Update files"'>git commit -m "..."</button>
-          <button class="quick-btn" data-cmd="git checkout -b feature">git checkout -b feature</button>
-          <button class="quick-btn" data-cmd="git checkout main">git checkout main</button>
+          <button class="quick-btn" data-cmd="git switch -c feature">git switch -c feature</button>
+          <button class="quick-btn" data-cmd="git switch main">git switch main</button>
           <button class="quick-btn" data-cmd="git merge feature">git merge feature</button>
+          <button class="quick-btn" data-cmd="git rebase main">git rebase main</button>
+          <button class="quick-btn" data-cmd="git reflog">git reflog</button>
+          <button class="quick-btn" data-cmd="git fsck">git fsck</button>
           <button class="quick-btn" data-cmd="git log">git log</button>
         </div>
         <div class="term-output" id="term-output"></div>
@@ -776,9 +789,23 @@
         this.initialized = false;
         this.workingDir = {};     // filename -> content
         this.stagingArea = {};    // filename -> content
-        this.commits = [];        // [{ id, message, parents, tree, timestamp }]
+        this.commits = [];        // [{ id, message, parents, tree, branchCreatedOn }]
         this.branches = {};       // branchName -> commitId (null if no commits yet)
+        this.tags = {};           // tagName -> commitId
         this.HEAD = { type: 'branch', ref: 'main' };
+        this.prevBranch = 'main';
+        this.stashes = [];        // [{ message, workingDir, stagingArea, branch }]
+        this.reflog = [];         // [{ id, action }]
+        this.mergeState = null;   // { branch, targetCommitId, conflicts: { [file]: { ours, theirs } } }
+        this.corruptState = {
+          indexLock: false,
+          corruptIndex: false
+        };
+      }
+
+      recordReflog(id, action) {
+        if (!id) return;
+        this.reflog.unshift({ id, action });
       }
 
       currentCommitId() {
@@ -794,6 +821,75 @@
         return this.commits.find(c => c.id === id) || null;
       }
 
+      findCommit(ref) {
+        if (!ref) return null;
+        if (ref === 'HEAD') return this.currentCommit();
+        const tildeMatch = ref.match(/^HEAD~(\d+)$/);
+        if (tildeMatch) {
+          let count = parseInt(tildeMatch[1], 10);
+          let cur = this.currentCommit();
+          while (count > 0 && cur && cur.parents.length) {
+            cur = this.commits.find(c => c.id === cur.parents[0]) || null;
+            count--;
+          }
+          return count === 0 ? cur : null;
+        }
+        const reflogMatch = ref.match(/^HEAD@\{(\d+)\}$/);
+        if (reflogMatch) {
+          const entry = this.reflog[parseInt(reflogMatch[1], 10)];
+          return entry ? (this.commits.find(c => c.id === entry.id) || null) : null;
+        }
+        if (ref in this.branches) {
+          return this.commits.find(c => c.id === this.branches[ref]) || null;
+        }
+        if (ref in this.tags) {
+          return this.commits.find(c => c.id === this.tags[ref]) || null;
+        }
+        return this.commits.find(c => c.id === ref || c.id.startsWith(ref)) || null;
+      }
+
+      isAncestor(ancestorId, descendantId) {
+        if (!ancestorId || !descendantId) return false;
+        if (ancestorId === descendantId) return true;
+        const visited = new Set();
+        const queue = [descendantId];
+        while (queue.length > 0) {
+          const curId = queue.shift();
+          if (curId === ancestorId) return true;
+          if (visited.has(curId)) continue;
+          visited.add(curId);
+          const c = this.commits.find(x => x.id === curId);
+          if (c) {
+            queue.push(...c.parents);
+          }
+        }
+        return false;
+      }
+
+      findCommonAncestor(idA, idB) {
+        if (!idA || !idB) return null;
+        const ancestorsA = new Set();
+        const qA = [idA];
+        while (qA.length > 0) {
+          const cur = qA.shift();
+          if (ancestorsA.has(cur)) continue;
+          ancestorsA.add(cur);
+          const c = this.commits.find(x => x.id === cur);
+          if (c) qA.push(...c.parents);
+        }
+        const qB = [idB];
+        const visitedB = new Set();
+        while (qB.length > 0) {
+          const cur = qB.shift();
+          if (ancestorsA.has(cur)) return this.commits.find(x => x.id === cur) || null;
+          if (visitedB.has(cur)) continue;
+          visitedB.add(cur);
+          const c = this.commits.find(x => x.id === cur);
+          if (c) qB.push(...c.parents);
+        }
+        return null;
+      }
+
       headTree() {
         const c = this.currentCommit();
         return c ? { ...c.tree } : {};
@@ -802,8 +898,9 @@
       shortHash() {
         const chars = '0123456789abcdef';
         let out = '';
+        const seed = this.commits.length * 41 + this.reflog.length * 17 + 7;
         for (let i = 0; i < 6; i++) {
-          out += chars[(this.commits.length * 37 + i * 13 + Math.floor(Math.random() * 16)) % 16];
+          out += chars[(seed + i * 29 + Math.floor(Math.random() * 16)) % 16];
         }
         return out;
       }
@@ -813,6 +910,7 @@
         const staged = [];
         const modified = [];
         const untracked = [];
+        const conflicted = this.mergeState ? Object.keys(this.mergeState.conflicts) : [];
 
         const allFiles = new Set([
           ...Object.keys(head),
@@ -821,11 +919,14 @@
         ]);
 
         for (const f of allFiles) {
+          if (conflicted.includes(f)) continue;
           const inHead = f in head;
           const inStage = f in this.stagingArea;
           const inWd = f in this.workingDir;
 
           if (inStage && (!inHead || this.stagingArea[f] !== head[f])) {
+            staged.push(f);
+          } else if (!inStage && inHead) {
             staged.push(f);
           }
           if (inWd) {
@@ -838,7 +939,7 @@
             }
           }
         }
-        return { staged, modified, untracked };
+        return { staged, modified, untracked, conflicted };
       }
 
       run(rawCmd) {
@@ -849,23 +950,34 @@
           return {
             type: 'info',
             text: [
-              'Available commands:',
-              '  git init                      Initialize a repository',
-              '  touch <file>                  Create or modify a file in working directory',
-              '  edit <file> <content>         Write text into a file',
-              '  rm <file>                     Delete a file from working directory',
-              '  ls                            List files in working directory',
-              '  git status                    Show working tree status',
-              '  git add <file | .>            Stage file(s)',
-              '  git commit -m "<msg>"         Create a new commit',
-              '  git branch [name]             List or create branches',
-              '  git checkout [-b] <branch>    Switch branches (or create & switch)',
-              '  git switch [-c] <branch>      Switch branches',
-              '  git merge <branch>            Merge target branch into current branch',
-              '  git log                       Show commit history',
-              '  git reset --hard HEAD~1       Reset current branch 1 commit back',
-              '  git revert HEAD               Revert latest commit with a new commit',
-              '  clear                         Clear terminal output'
+              'Available Git & Shell commands:',
+              '  git init                         Initialize a repository',
+              '  touch <file>                     Create or modify a file',
+              '  edit <file> <content>            Write text into a file (use to resolve conflicts)',
+              '  cat <file>                       View contents of a file',
+              '  rm <file>                        Delete a file (or rm .git/index.lock)',
+              '  ls                               List files in working directory',
+              '  git status                       Show working tree & conflict status',
+              '  git diff [--staged]              Show file changes in working tree or index',
+              '  git add <file | .>               Stage file(s) or mark conflict resolved',
+              '  git restore [--staged] <file|.>  Restore working tree file or unstage',
+              '  git commit -m "<msg>"            Create a new commit snapshot',
+              '  git switch [-c] <branch>         Switch branches (or create & switch with -c)',
+              '  git switch -                     Switch back to previous branch',
+              '  git checkout [-b] <branch|ref>   Switch branches or detach HEAD at commit',
+              '  git checkout --ours/--theirs <f> Resolve conflict keeping ours or theirs',
+              '  git branch [name] [ref]          List or create branches',
+              '  git merge <branch> [--abort]     Merge target branch into current branch',
+              '  git rebase <branch>              Replay current branch commits onto <branch>',
+              '  git cherry-pick <commit>         Apply a commit onto current branch',
+              '  git stash [pop|list|drop]        Stash or restore uncommitted changes',
+              '  git tag [name]                   List or create tags at HEAD',
+              '  git reset [--hard|--soft] <ref>  Move branch pointer to <ref> (e.g. HEAD~1, hash)',
+              '  git revert HEAD                  Create a new commit that undoes HEAD',
+              '  git log                          Show commit history',
+              '  git reflog                       Show history of HEAD movements (recover lost commits)',
+              '  git fsck                         Check repository integrity & find dangling commits',
+              '  clear                            Clear terminal output'
             ].join('\n')
           };
         }
@@ -873,6 +985,20 @@
         if (cmd === 'ls') {
           const files = Object.keys(this.workingDir);
           return { type: 'info', text: files.length ? files.join('  ') : '(empty directory)' };
+        }
+
+        if (cmd.startsWith('cat ')) {
+          const file = cmd.slice(4).trim();
+          if (!file) return { type: 'error', text: 'Usage: cat <filename>' };
+          if (file === '.git/index.lock') {
+            return this.corruptState.indexLock
+              ? { type: 'warn', text: 'LOCKED_PID=9941 (stale lock file)' }
+              : { type: 'error', text: 'cat: .git/index.lock: No such file' };
+          }
+          if (!(file in this.workingDir)) {
+            return { type: 'error', text: `cat: ${file}: No such file or directory` };
+          }
+          return { type: 'info', text: this.workingDir[file] || '(empty file)' };
         }
 
         if (cmd.startsWith('touch ')) {
@@ -887,14 +1013,26 @@
         if (cmd.startsWith('edit ')) {
           const parts = cmd.slice(5).trim().split(/\s+/);
           const file = parts[0];
-          const content = parts.slice(1).join(' ') || 'updated content';
+          const content = parts.slice(1).join(' ').replace(/^"|"$/g, '') || 'updated content';
           if (!file) return { type: 'error', text: 'Usage: edit <filename> <text>' };
-          this.workingDir[file] = content;
+          this.workingDir[file] = content + '\n';
           return { type: 'success', text: `Wrote "${content}" to ${file}` };
         }
 
         if (cmd.startsWith('rm ')) {
-          const file = cmd.slice(3).trim();
+          const file = cmd.slice(3).trim().replace(/^-f\s+/, '');
+          if (file === '.git/index.lock' || file === 'index.lock') {
+            if (!this.corruptState.indexLock) {
+              return { type: 'info', text: 'No .git/index.lock file present.' };
+            }
+            this.corruptState.indexLock = false;
+            return { type: 'success', text: 'Removed stale lock file .git/index.lock' };
+          }
+          if (file === '.git/index') {
+            this.corruptState.corruptIndex = false;
+            this.stagingArea = { ...this.headTree() };
+            return { type: 'success', text: 'Removed corrupt .git/index and rebuilt clean index from HEAD.' };
+          }
           if (!(file in this.workingDir)) return { type: 'error', text: `rm: cannot remove '${file}': No such file` };
           delete this.workingDir[file];
           delete this.stagingArea[file];
@@ -922,10 +1060,77 @@
           return { type: 'error', text: 'fatal: not a git repository (or any of the parent directories): .git\nHint: Run "git init" first!' };
         }
 
+        // Check repository corruption states
+        if (sub === 'fsck') {
+          const issues = [];
+          if (this.corruptState.indexLock) {
+            issues.push('error: stale lock file .git/index.lock exists (remove with "rm .git/index.lock")');
+          }
+          if (this.corruptState.corruptIndex) {
+            issues.push('error: .git/index: bad signature 0x00000000 (index file corrupt — fix with "rm .git/index" or "git reset")');
+          }
+          if (this.HEAD.type === 'detached') {
+            issues.push(`notice: HEAD points directly to commit ${this.HEAD.ref} (detached HEAD)`);
+          }
+          // Find unreachable / dangling commits
+          const reachable = new Set();
+          Object.values(this.branches).forEach(cid => {
+            if (!cid) return;
+            const q = [cid];
+            while (q.length) {
+              const cur = q.shift();
+              if (reachable.has(cur)) continue;
+              reachable.add(cur);
+              const c = this.commits.find(x => x.id === cur);
+              if (c) q.push(...c.parents);
+            }
+          });
+          this.commits.forEach(c => {
+            if (!reachable.has(c.id)) {
+              issues.push(`dangling commit ${c.id} ("${c.message}")`);
+            }
+          });
+          if (!issues.length) {
+            return { type: 'success', text: 'Checking object directories: 100% (done).\nVerifying connectivity: 100% (done). Repository is healthy!' };
+          }
+          return { type: 'warn', text: 'Checking object database...\n' + issues.join('\n') };
+        }
+
+        if (this.corruptState.indexLock && !['status', 'log', 'reflog', 'diff', 'branch'].includes(sub)) {
+          return {
+            type: 'error',
+            text: "fatal: Unable to create '/project/.git/index.lock': File exists.\nAnother git process seems to have crashed in this repository.\nHint: Remove the stale lock with 'rm .git/index.lock'."
+          };
+        }
+
+        if (this.corruptState.corruptIndex && !['reset', 'read-tree', 'log', 'reflog'].includes(sub)) {
+          return {
+            type: 'error',
+            text: "error: bad signature 0x00000000\nfatal: index file corrupt\nHint: Rebuild the staging index by running 'git reset' (or 'rm .git/index')."
+          };
+        }
+
+        if (sub === 'read-tree') {
+          this.corruptState.corruptIndex = false;
+          this.stagingArea = { ...this.headTree() };
+          return { type: 'success', text: 'Rebuilt .git/index tree from HEAD.' };
+        }
+
         if (sub === 'status') {
-          const { staged, modified, untracked } = this.getStatus();
-          let lines = [`On branch ${this.HEAD.ref}`];
+          const { staged, modified, untracked, conflicted } = this.getStatus();
+          let lines = [
+            this.HEAD.type === 'branch'
+              ? `On branch ${this.HEAD.ref}`
+              : `HEAD detached at ${this.HEAD.ref}`
+          ];
           if (!this.currentCommitId()) lines.push('No commits yet');
+          if (this.mergeState) {
+            lines.push(`You have unmerged paths from merging '${this.mergeState.branch}'.`);
+            lines.push('  (fix conflicts and run "git commit", or "git merge --abort")');
+          }
+          if (conflicted.length) {
+            lines.push('\nUnmerged paths:\n  ' + conflicted.map(f => `both modified:   ${f}`).join('\n  '));
+          }
           if (staged.length) {
             lines.push('\nChanges to be committed:\n  ' + staged.map(f => `staged:   ${f}`).join('\n  '));
           }
@@ -935,44 +1140,114 @@
           if (untracked.length) {
             lines.push('\nUntracked files:\n  ' + untracked.join('\n  '));
           }
-          if (!staged.length && !modified.length && !untracked.length) {
+          if (!staged.length && !modified.length && !untracked.length && !conflicted.length) {
             lines.push('nothing to commit, working tree clean');
           }
-          return { type: 'info', text: lines.join('\n') };
+          return { type: conflicted.length ? 'warn' : 'info', text: lines.join('\n') };
+        }
+
+        if (sub === 'diff') {
+          const isStaged = args.includes('--staged') || args.includes('--cached');
+          const base = isStaged ? this.headTree() : this.stagingArea;
+          const target = isStaged ? this.stagingArea : this.workingDir;
+          const all = new Set([...Object.keys(base), ...Object.keys(target)]);
+          const out = [];
+          for (const f of all) {
+            const a = base[f] ?? '';
+            const b = target[f] ?? '';
+            if (a !== b) {
+              out.push(`diff --git a/${f} b/${f}`);
+              if (a) out.push(`--- a/${f}\n- ${a.trim()}`);
+              if (b) out.push(`+++ b/${f}\n+ ${b.trim()}`);
+            }
+          }
+          return { type: 'info', text: out.length ? out.join('\n') : '(no differences)' };
         }
 
         if (sub === 'add') {
           const target = args[2];
           if (!target) return { type: 'error', text: 'Nothing specified, nothing added. Try: git add . or git add <file>' };
-          if (target === '.' || target === '-A' || target === '--all') {
-            this.stagingArea = { ...this.workingDir };
-            return { type: 'success', text: `Staged all files (${Object.keys(this.workingDir).length} file(s))` };
+          const filesToAdd = (target === '.' || target === '-A' || target === '--all')
+            ? Object.keys(this.workingDir)
+            : [target];
+
+          for (const f of filesToAdd) {
+            if (!(f in this.workingDir)) {
+              return { type: 'error', text: `fatal: pathspec '${f}' did not match any files` };
+            }
+            if (this.mergeState && f in this.mergeState.conflicts) {
+              if (this.workingDir[f].includes('<<<<<<<')) {
+                return {
+                  type: 'error',
+                  text: `error: '${f}' still contains conflict markers (<<<<<<<).\nHint: Resolve it first with 'edit ${f} <resolved-content>' or 'git checkout --ours/--theirs ${f}', then run 'git add ${f}'.`
+                };
+              }
+              delete this.mergeState.conflicts[f];
+            }
+            this.stagingArea[f] = this.workingDir[f];
           }
-          if (!(target in this.workingDir)) {
-            return { type: 'error', text: `fatal: pathspec '${target}' did not match any files` };
+          return { type: 'success', text: `Staged ${filesToAdd.join(', ')}` };
+        }
+
+        if (sub === 'restore') {
+          const isStaged = args.includes('--staged') || args.includes('-S');
+          const isOurs = args.includes('--ours');
+          const isTheirs = args.includes('--theirs');
+          const target = args[args.length - 1];
+          if (!target || target === 'restore' || target.startsWith('-')) {
+            return { type: 'error', text: 'Usage: git restore [--staged|--ours|--theirs] <file | .>' };
           }
-          this.stagingArea[target] = this.workingDir[target];
-          return { type: 'success', text: `Staged '${target}'` };
+          if ((isOurs || isTheirs) && this.mergeState && target in this.mergeState.conflicts) {
+            const chosen = isOurs ? this.mergeState.conflicts[target].ours : this.mergeState.conflicts[target].theirs;
+            this.workingDir[target] = chosen;
+            return { type: 'success', text: `Updated '${target}' using ${isOurs ? 'ours (HEAD)' : 'theirs (' + this.mergeState.branch + ')'}. Run 'git add ${target}' to mark resolved.` };
+          }
+          const head = this.headTree();
+          const files = target === '.' ? Object.keys(isStaged ? this.stagingArea : this.workingDir) : [target];
+          files.forEach(f => {
+            if (isStaged) {
+              if (f in head) this.stagingArea[f] = head[f];
+              else delete this.stagingArea[f];
+            } else {
+              if (f in this.stagingArea) this.workingDir[f] = this.stagingArea[f];
+              else if (f in head) this.workingDir[f] = head[f];
+            }
+          });
+          return { type: 'success', text: `${isStaged ? 'Unstaged' : 'Restored'} ${files.join(', ')}` };
         }
 
         if (sub === 'commit') {
+          if (this.mergeState && Object.keys(this.mergeState.conflicts).length > 0) {
+            return {
+              type: 'error',
+              text: `error: Committing is not possible because you have unmerged files: ${Object.keys(this.mergeState.conflicts).join(', ')}\nHint: Fix conflicts with 'edit <file> <text>', stage with 'git add <file>', then commit.`
+            };
+          }
           const mIndex = args.indexOf('-m');
-          if (mIndex === -1 || !args[mIndex + 1]) {
+          const msg = (mIndex !== -1 && args[mIndex + 1])
+            ? args[mIndex + 1].replace(/^"|"$/g, '')
+            : (this.mergeState ? `Merge branch '${this.mergeState.branch}' into ${this.HEAD.ref}` : null);
+
+          if (!msg) {
             return { type: 'error', text: 'error: switch `m` requires a value. Example: git commit -m "Initial commit"' };
           }
-          const msg = args[mIndex + 1].replace(/^"|"$/g, '');
+
           const { staged } = this.getStatus();
-          if (staged.length === 0) {
+          if (staged.length === 0 && !this.mergeState) {
             return { type: 'warn', text: 'nothing to commit (stage files first with "git add <file>" or "git add .")' };
           }
+
           const parentId = this.currentCommitId();
+          const parents = this.mergeState
+            ? [parentId, this.mergeState.targetCommitId].filter(Boolean)
+            : (parentId ? [parentId] : []);
           const newId = this.shortHash();
           const newCommit = {
             id: newId,
             message: msg,
-            parents: parentId ? [parentId] : [],
+            parents,
             tree: { ...this.stagingArea },
-            branchCreatedOn: this.HEAD.ref
+            branchCreatedOn: this.HEAD.type === 'branch' ? this.HEAD.ref : 'main'
           };
           this.commits.push(newCommit);
           if (this.HEAD.type === 'branch') {
@@ -980,29 +1255,66 @@
           } else {
             this.HEAD.ref = newId;
           }
-          return { type: 'success', text: `[${this.HEAD.ref} ${newId}] ${msg}\n ${staged.length} file(s) changed` };
+          this.mergeState = null;
+          this.recordReflog(newId, `commit: ${msg}`);
+          return { type: 'success', text: `[${this.HEAD.ref} ${newId}] ${msg}\n ${ Object.keys(this.stagingArea).length } file(s) in snapshot` };
         }
 
         if (sub === 'branch') {
+          const deleteFlag = args[2] === '-d' || args[2] === '-D';
+          if (deleteFlag) {
+            const delName = args[3];
+            if (!delName || !(delName in this.branches)) {
+              return { type: 'error', text: `error: branch '${delName || ''}' not found.` };
+            }
+            if (this.HEAD.type === 'branch' && this.HEAD.ref === delName) {
+              return { type: 'error', text: `error: Cannot delete branch '${delName}' checked out at current HEAD.` };
+            }
+            delete this.branches[delName];
+            return { type: 'success', text: `Deleted branch ${delName}.` };
+          }
           const name = args[2];
+          const startRef = args[3];
           if (!name) {
-            const list = Object.keys(this.branches).map(b => (b === this.HEAD.ref ? `* ${b}` : `  ${b}`)).join('\n');
+            const list = Object.keys(this.branches).map(b => (this.HEAD.type === 'branch' && b === this.HEAD.ref ? `* ${b}` : `  ${b}`)).join('\n');
             return { type: 'info', text: list };
           }
           if (name in this.branches) {
             return { type: 'error', text: `fatal: a branch named '${name}' already exists` };
           }
-          if (!this.currentCommitId()) {
-            return { type: 'error', text: 'fatal: not a valid object name: "main" (make at least one commit before branching)' };
+          const targetCommit = startRef ? this.findCommit(startRef) : this.currentCommit();
+          if (!targetCommit) {
+            return { type: 'error', text: 'fatal: not a valid object name (make at least one commit before branching)' };
           }
-          this.branches[name] = this.currentCommitId();
-          return { type: 'success', text: `Created branch '${name}' at ${this.currentCommitId()}` };
+          this.branches[name] = targetCommit.id;
+          return { type: 'success', text: `Created branch '${name}' at ${targetCommit.id}` };
         }
 
-        if (sub === 'checkout' || sub === 'switch') {
-          const createFlag = args[2] === '-b' || args[2] === '-c';
-          const target = createFlag ? args[3] : args[2];
-          if (!target) return { type: 'error', text: `Usage: git ${sub} [-b] <branch-name>` };
+        if (sub === 'switch' || sub === 'checkout') {
+          // Handle conflict resolution: git checkout --ours / --theirs <file>
+          if (args[2] === '--ours' || args[2] === '--theirs') {
+            const isOurs = args[2] === '--ours';
+            const file = args[3];
+            if (!this.mergeState || !(file in this.mergeState.conflicts)) {
+              return { type: 'error', text: `error: path '${file || ''}' does not have a merge conflict` };
+            }
+            this.workingDir[file] = isOurs ? this.mergeState.conflicts[file].ours : this.mergeState.conflicts[file].theirs;
+            return { type: 'success', text: `Resolved '${file}' using ${isOurs ? 'ours (HEAD)' : 'theirs (' + this.mergeState.branch + ')'}. Run 'git add ${file}' to stage.` };
+          }
+
+          if (this.mergeState) {
+            return { type: 'error', text: 'error: you need to resolve your current merge conflict first (or run "git merge --abort").' };
+          }
+
+          const createFlag = args[2] === '-b' || args[2] === '-c' || args[2] === '--create';
+          const detachFlag = args[2] === '--detach' || args[2] === '-d';
+          let target = (createFlag || detachFlag) ? args[3] : args[2];
+          if (!target) {
+            return { type: 'error', text: `Usage: git ${sub} [${sub === 'switch' ? '-c' : '-b'}] <branch-name>` };
+          }
+          if (target === '-') {
+            target = this.prevBranch || 'main';
+          }
 
           if (createFlag) {
             if (!this.currentCommitId()) {
@@ -1012,18 +1324,41 @@
               return { type: 'error', text: `fatal: a branch named '${target}' already exists` };
             }
             this.branches[target] = this.currentCommitId();
+          } else if (detachFlag || (!(target in this.branches) && sub === 'checkout')) {
+            const c = this.findCommit(target);
+            if (!c) {
+              return { type: 'error', text: `error: pathspec '${target}' did not match any branch or commit known to git` };
+            }
+            if (this.HEAD.type === 'branch') this.prevBranch = this.HEAD.ref;
+            this.HEAD = { type: 'detached', ref: c.id };
+            this.workingDir = { ...c.tree };
+            this.stagingArea = { ...c.tree };
+            this.recordReflog(c.id, `${sub}: moving to ${c.id}`);
+            return { type: 'warn', text: `HEAD is now detached at ${c.id} (${c.message})` };
           } else if (!(target in this.branches)) {
-            return { type: 'error', text: `error: pathspec '${target}' did not match any branch known to git` };
+            return { type: 'error', text: `fatal: invalid reference: ${target}. Tip: Use 'git ${sub} ${sub === 'switch' ? '-c' : '-b'} ${target}' to create a new branch.` };
           }
 
+          const prevRef = this.HEAD.ref;
+          if (this.HEAD.type === 'branch') this.prevBranch = this.HEAD.ref;
           this.HEAD = { type: 'branch', ref: target };
           const tree = this.headTree();
           this.workingDir = { ...tree };
           this.stagingArea = { ...tree };
+          this.recordReflog(this.currentCommitId(), `${sub}: moving from ${prevRef} to ${target}`);
           return { type: 'success', text: `Switched to ${createFlag ? 'a new ' : ''}branch '${target}'` };
         }
 
         if (sub === 'merge') {
+          if (args[2] === '--abort') {
+            if (!this.mergeState) return { type: 'error', text: 'fatal: There is no merge to abort (MERGE_HEAD missing).' };
+            this.mergeState = null;
+            const tree = this.headTree();
+            this.workingDir = { ...tree };
+            this.stagingArea = { ...tree };
+            return { type: 'warn', text: 'Merge aborted. Working tree restored to HEAD.' };
+          }
+
           const targetBranch = args[2];
           if (!targetBranch) return { type: 'error', text: 'Usage: git merge <branch-name>' };
           if (!(targetBranch in this.branches)) {
@@ -1031,13 +1366,81 @@
           }
           const targetCommitId = this.branches[targetBranch];
           const currentId = this.currentCommitId();
-          if (targetCommitId === currentId) {
+          if (targetCommitId === currentId || this.isAncestor(targetCommitId, currentId)) {
             return { type: 'info', text: 'Already up to date.' };
           }
 
           const targetCommit = this.commits.find(c => c.id === targetCommitId);
+          // Fast-forward check
+          if (this.isAncestor(currentId, targetCommitId)) {
+            if (this.HEAD.type === 'branch') {
+              this.branches[this.HEAD.ref] = targetCommitId;
+            } else {
+              this.HEAD.ref = targetCommitId;
+            }
+            this.workingDir = { ...targetCommit.tree };
+            this.stagingArea = { ...targetCommit.tree };
+            this.recordReflog(targetCommitId, `merge ${targetBranch}: Fast-forward`);
+            return { type: 'success', text: `Updating ${currentId}..${targetCommitId}\nFast-forward` };
+          }
+
           const currentCommit = this.currentCommit();
-          const mergedTree = { ...(currentCommit ? currentCommit.tree : {}), ...(targetCommit ? targetCommit.tree : {}) };
+          const baseCommit = this.findCommonAncestor(currentId, targetCommitId);
+          const baseTree = baseCommit ? baseCommit.tree : {};
+          const oursTree = currentCommit ? currentCommit.tree : {};
+          const theirsTree = targetCommit ? targetCommit.tree : {};
+
+          const allFiles = new Set([
+            ...Object.keys(baseTree),
+            ...Object.keys(oursTree),
+            ...Object.keys(theirsTree)
+          ]);
+
+          const mergedTree = {};
+          const conflicts = {};
+
+          for (const f of allFiles) {
+            const baseVal = baseTree[f];
+            const oursVal = oursTree[f];
+            const theirsVal = theirsTree[f];
+
+            if (oursVal === theirsVal) {
+              if (oursVal !== undefined) mergedTree[f] = oursVal;
+            } else if (oursVal === baseVal) {
+              if (theirsVal !== undefined) mergedTree[f] = theirsVal;
+            } else if (theirsVal === baseVal) {
+              if (oursVal !== undefined) mergedTree[f] = oursVal;
+            } else {
+              conflicts[f] = {
+                ours: oursVal ?? '',
+                theirs: theirsVal ?? ''
+              };
+              mergedTree[f] = [
+                '<<<<<<< HEAD',
+                (oursVal ?? '').trim(),
+                '=======',
+                (theirsVal ?? '').trim(),
+                `>>>>>>> ${targetBranch}`
+              ].join('\n') + '\n';
+            }
+          }
+
+          if (Object.keys(conflicts).length > 0) {
+            this.mergeState = {
+              branch: targetBranch,
+              targetCommitId,
+              conflicts
+            };
+            this.workingDir = { ...mergedTree };
+            this.stagingArea = { ...oursTree };
+            const conflictList = Object.keys(conflicts)
+              .map(f => `CONFLICT (content): Merge conflict in ${f}`)
+              .join('\n');
+            return {
+              type: 'error',
+              text: `${conflictList}\nAutomatic merge failed; fix conflicts (e.g. 'cat <file>', 'edit <file> <val>', 'git add <file>') and then commit the result.`
+            };
+          }
 
           const newId = this.shortHash();
           const mergeCommit = {
@@ -1051,53 +1454,221 @@
           this.branches[this.HEAD.ref] = newId;
           this.workingDir = { ...mergedTree };
           this.stagingArea = { ...mergedTree };
+          this.recordReflog(newId, `merge ${targetBranch}: Merge made by the 'ort' strategy.`);
           return { type: 'success', text: `Merge made by the 'ort' strategy.\n[${this.HEAD.ref} ${newId}] Merge branch '${targetBranch}'` };
         }
 
-        if (sub === 'reset') {
-          const current = this.currentCommit();
-          if (!current || !current.parents.length) {
-            return { type: 'error', text: 'fatal: cannot reset past initial commit' };
+        if (sub === 'rebase') {
+          const targetBranch = args[2];
+          if (!targetBranch) return { type: 'error', text: 'Usage: git rebase <upstream-branch>' };
+          if (!(targetBranch in this.branches)) {
+            return { type: 'error', text: `fatal: invalid upstream '${targetBranch}'` };
           }
-          const parentId = current.parents[0];
-          this.branches[this.HEAD.ref] = parentId;
-          const parentCommit = this.commits.find(c => c.id === parentId);
-          this.workingDir = { ...(parentCommit ? parentCommit.tree : {}) };
-          this.stagingArea = { ...(parentCommit ? parentCommit.tree : {}) };
-          return { type: 'warn', text: `HEAD is now at ${parentId} ${parentCommit.message}` };
+          const ontoId = this.branches[targetBranch];
+          const currentId = this.currentCommitId();
+          if (ontoId === currentId || this.isAncestor(ontoId, currentId)) {
+            return { type: 'info', text: `Current branch ${this.HEAD.ref} is up to date.` };
+          }
+          const baseCommit = this.findCommonAncestor(currentId, ontoId);
+          // Collect commits from baseCommit (exclusive) to currentCommit (inclusive)
+          const toReplay = [];
+          let cursor = this.currentCommit();
+          while (cursor && (!baseCommit || cursor.id !== baseCommit.id)) {
+            toReplay.unshift(cursor);
+            cursor = cursor.parents.length ? this.commits.find(c => c.id === cursor.parents[0]) : null;
+          }
+
+          let newParent = this.commits.find(c => c.id === ontoId);
+          let runningTree = { ...(newParent ? newParent.tree : {}) };
+
+          toReplay.forEach(orig => {
+            const origParent = orig.parents.length ? this.commits.find(c => c.id === orig.parents[0]) : null;
+            const origParentTree = origParent ? origParent.tree : {};
+            // Apply diff of orig relative to origParent onto runningTree
+            for (const [k, v] of Object.entries(orig.tree)) {
+              if (origParentTree[k] !== v) {
+                runningTree[k] = v;
+              }
+            }
+            const rebasedId = this.shortHash();
+            const rebasedCommit = {
+              id: rebasedId,
+              message: orig.message,
+              parents: [newParent.id],
+              tree: { ...runningTree },
+              branchCreatedOn: this.HEAD.ref
+            };
+            this.commits.push(rebasedCommit);
+            newParent = rebasedCommit;
+          });
+
+          if (this.HEAD.type === 'branch') {
+            this.branches[this.HEAD.ref] = newParent.id;
+          } else {
+            this.HEAD.ref = newParent.id;
+          }
+          this.workingDir = { ...runningTree };
+          this.stagingArea = { ...runningTree };
+          this.recordReflog(newParent.id, `rebase (finish): returning to refs/heads/${this.HEAD.ref}`);
+          return {
+            type: 'success',
+            text: `Successfully rebased and updated refs/heads/${this.HEAD.ref} (${toReplay.length} commit(s) replayed onto ${targetBranch}).`
+          };
+        }
+
+        if (sub === 'cherry-pick') {
+          const ref = args[2];
+          const target = this.findCommit(ref);
+          if (!target) return { type: 'error', text: `fatal: bad revision '${ref || ''}'` };
+          const cur = this.currentCommit();
+          const newTree = { ...(cur ? cur.tree : {}), ...target.tree };
+          const newId = this.shortHash();
+          const cpCommit = {
+            id: newId,
+            message: target.message,
+            parents: cur ? [cur.id] : [],
+            tree: newTree,
+            branchCreatedOn: this.HEAD.ref
+          };
+          this.commits.push(cpCommit);
+          if (this.HEAD.type === 'branch') {
+            this.branches[this.HEAD.ref] = newId;
+          } else {
+            this.HEAD.ref = newId;
+          }
+          this.workingDir = { ...newTree };
+          this.stagingArea = { ...newTree };
+          this.recordReflog(newId, `cherry-pick: ${target.message}`);
+          return { type: 'success', text: `[${this.HEAD.ref} ${newId}] ${target.message}` };
+        }
+
+        if (sub === 'stash') {
+          const action = args[2] || 'push';
+          if (action === 'list') {
+            if (!this.stashes.length) return { type: 'info', text: '(stash is empty)' };
+            return {
+              type: 'info',
+              text: this.stashes.map((s, i) => `stash@{${i}}: WIP on ${s.branch}: ${s.message}`).join('\n')
+            };
+          }
+          if (action === 'pop' || action === 'apply') {
+            if (!this.stashes.length) return { type: 'error', text: 'error: No stash entries found.' };
+            const entry = action === 'pop' ? this.stashes.shift() : this.stashes[0];
+            this.workingDir = { ...entry.workingDir };
+            this.stagingArea = { ...entry.stagingArea };
+            return { type: 'success', text: `Restored stashed changes (${entry.message}).` };
+          }
+          if (action === 'drop') {
+            if (!this.stashes.length) return { type: 'error', text: 'error: No stash entries found.' };
+            this.stashes.shift();
+            return { type: 'info', text: 'Dropped stash@{0}.' };
+          }
+          const head = this.headTree();
+          this.stashes.unshift({
+            message: this.currentCommit() ? this.currentCommit().message : 'unborn',
+            workingDir: { ...this.workingDir },
+            stagingArea: { ...this.stagingArea },
+            branch: this.HEAD.ref
+          });
+          this.workingDir = { ...head };
+          this.stagingArea = { ...head };
+          return { type: 'success', text: `Saved working directory and index state WIP on ${this.HEAD.ref}` };
+        }
+
+        if (sub === 'tag') {
+          const tagName = args[2];
+          if (!tagName) {
+            const list = Object.keys(this.tags);
+            return { type: 'info', text: list.length ? list.join('\n') : '(no tags)' };
+          }
+          const curId = this.currentCommitId();
+          if (!curId) return { type: 'error', text: 'fatal: Failed to resolve HEAD as a valid ref.' };
+          this.tags[tagName] = curId;
+          return { type: 'success', text: `Created tag '${tagName}' at ${curId}` };
+        }
+
+        if (sub === 'reset') {
+          this.corruptState.corruptIndex = false;
+          const isHard = args.includes('--hard');
+          const isSoft = args.includes('--soft');
+          const refArg = args.slice(2).find(a => !a.startsWith('-')) || 'HEAD';
+          const targetCommit = this.findCommit(refArg);
+
+          if (!targetCommit) {
+            return { type: 'error', text: `fatal: ambiguous argument '${refArg}': unknown revision or commit hash` };
+          }
+
+          if (this.HEAD.type === 'branch') {
+            this.branches[this.HEAD.ref] = targetCommit.id;
+          } else {
+            this.HEAD.ref = targetCommit.id;
+          }
+          this.mergeState = null;
+
+          if (isHard) {
+            this.workingDir = { ...targetCommit.tree };
+            this.stagingArea = { ...targetCommit.tree };
+          } else if (!isSoft) {
+            // --mixed (default): reset staging index to targetCommit, keep workingDir
+            this.stagingArea = { ...targetCommit.tree };
+          }
+          this.recordReflog(targetCommit.id, `reset: moving to ${refArg}`);
+          return { type: 'warn', text: `HEAD is now at ${targetCommit.id} ${targetCommit.message}` };
         }
 
         if (sub === 'revert') {
-          const current = this.currentCommit();
-          if (!current) return { type: 'error', text: 'fatal: nothing to revert' };
-          const parentId = current.parents[0];
+          const refArg = args[2] || 'HEAD';
+          const target = this.findCommit(refArg);
+          if (!target) return { type: 'error', text: 'fatal: nothing to revert' };
+          const parentId = target.parents[0];
           const parentCommit = this.commits.find(c => c.id === parentId);
           const revertedTree = parentCommit ? { ...parentCommit.tree } : {};
           const newId = this.shortHash();
           const revertCommit = {
             id: newId,
-            message: `Revert "${current.message}"`,
-            parents: [current.id],
+            message: `Revert "${target.message}"`,
+            parents: [this.currentCommitId()],
             tree: revertedTree,
             branchCreatedOn: this.HEAD.ref
           };
           this.commits.push(revertCommit);
-          this.branches[this.HEAD.ref] = newId;
+          if (this.HEAD.type === 'branch') {
+            this.branches[this.HEAD.ref] = newId;
+          } else {
+            this.HEAD.ref = newId;
+          }
           this.workingDir = { ...revertedTree };
           this.stagingArea = { ...revertedTree };
-          return { type: 'success', text: `[${this.HEAD.ref} ${newId}] Revert "${current.message}"` };
+          this.recordReflog(newId, `revert: Revert "${target.message}"`);
+          return { type: 'success', text: `[${this.HEAD.ref} ${newId}] Revert "${target.message}"` };
+        }
+
+        if (sub === 'reflog') {
+          if (!this.reflog.length) return { type: 'info', text: '(reflog is empty)' };
+          return {
+            type: 'info',
+            text: this.reflog.map((entry, idx) => `${entry.id} HEAD@{${idx}}: ${entry.action}`).join('\n')
+          };
         }
 
         if (sub === 'log') {
           if (!this.commits.length) return { type: 'error', text: 'fatal: your current branch does not have any commits yet' };
+          const oneline = args.includes('--oneline');
           const lines = [...this.commits].reverse().map(c => {
             const refs = Object.entries(this.branches)
               .filter(([, id]) => id === c.id)
-              .map(([b]) => (b === this.HEAD.ref ? `HEAD -> ${b}` : b));
+              .map(([b]) => (this.HEAD.type === 'branch' && b === this.HEAD.ref ? `HEAD -> ${b}` : b));
+            if (this.HEAD.type === 'detached' && this.HEAD.ref === c.id) {
+              refs.unshift('HEAD');
+            }
+            Object.entries(this.tags).forEach(([t, id]) => {
+              if (id === c.id) refs.push(`tag: ${t}`);
+            });
             const refStr = refs.length ? ` (${refs.join(', ')})` : '';
+            if (oneline) return `${c.id}${refStr} ${c.message}`;
             return `commit ${c.id}${refStr}\n    ${c.message}`;
           });
-          return { type: 'info', text: lines.join('\n\n') };
+          return { type: 'info', text: lines.join(oneline ? '\n' : '\n\n') };
         }
 
         return { type: 'error', text: `git: '${sub}' is not supported in this sandbox. Type 'help' to see commands.` };
@@ -1111,6 +1682,7 @@
         title: 'Level 1: Wake Up, Git!',
         desc: 'Every project starts with initializing a repository and staging your first file into the Index.',
         hint: 'Hint: Run <code>git init</code>, then create a file with <code>touch app.js</code>, and stage it with <code>git add app.js</code> (or <code>git add .</code>).',
+        quickCmds: ['git init', 'touch app.js', 'git status', 'git add .'],
         setup(git) {
           git.reset();
         },
@@ -1125,6 +1697,7 @@
         title: 'Level 2: First Snapshot',
         desc: 'Staged files wait in the Index until you permanently record them into the commit history with a message.',
         hint: 'Hint: Stage the starter file with <code>git add .</code> and commit it using <code>git commit -m "Initial commit"</code>. Then edit/create another file and make a 2nd commit!',
+        quickCmds: ['git add .', 'git commit -m "Initial commit"', 'touch style.css', 'git commit -m "Add styles"'],
         setup(git) {
           git.reset();
           git.run('git init');
@@ -1137,9 +1710,10 @@
       },
       {
         id: 3,
-        title: 'Level 3: Branching Out',
-        desc: 'Branches let you work on new features in isolation without breaking main. Create a branch named "feature" and switch to it!',
-        hint: 'Hint: Use <code>git checkout -b feature</code> (or <code>git branch feature</code> followed by <code>git checkout feature</code>), then commit a new file on it.',
+        title: 'Level 3: Branching Out (git switch)',
+        desc: 'Branches let you work on new features in isolation without breaking main. Use modern "git switch -c feature" (or "git checkout -b feature") to create and switch to a "feature" branch!',
+        hint: 'Hint: Run <code>git switch -c feature</code> (or <code>git branch feature</code> + <code>git switch feature</code>), then stage and commit a new file on it.',
+        quickCmds: ['git switch -c feature', 'touch feature.js', 'git add .', 'git commit -m "Add feature"'],
         setup(git) {
           git.reset();
           git.run('git init');
@@ -1149,33 +1723,35 @@
         },
         objectives: [
           { text: 'Create a branch named "feature"', check: git => 'feature' in git.branches },
-          { text: 'Switch HEAD to "feature"', check: git => git.HEAD.ref === 'feature' },
+          { text: 'Switch HEAD to "feature" (git switch feature)', check: git => git.HEAD.ref === 'feature' },
           { text: 'Make at least 1 new commit on "feature"', check: git => git.branches['feature'] && git.branches['feature'] !== git.branches['main'] }
         ]
       },
       {
         id: 4,
         title: 'Level 4: Merging Branches',
-        desc: 'Your feature branch is ready! Switch back to "main" and merge "feature" into "main" to combine the histories.',
-        hint: 'Hint: Run <code>git checkout main</code> and then <code>git merge feature</code>.',
+        desc: 'Your feature branch is ready! Switch back to "main" using "git switch main" and merge "feature" into "main" to combine the divergent histories.',
+        hint: 'Hint: Run <code>git switch main</code> and then <code>git merge feature</code>.',
+        quickCmds: ['git switch main', 'git merge feature', 'git log'],
         setup(git) {
           git.reset();
           git.run('git init');
           git.run('touch core.js');
           git.run('git add .');
           git.run('git commit -m "Core setup"');
-          git.run('git checkout -b feature');
+          git.run('git switch -c feature');
           git.run('touch feature.js');
           git.run('git add .');
           git.run('git commit -m "Add feature.js"');
-          git.run('git checkout main');
+          git.run('git switch main');
           git.run('touch hotfix.js');
           git.run('git add .');
           git.run('git commit -m "Main hotfix"');
+          git.run('git switch feature');
         },
         objectives: [
-          { text: 'Ensure HEAD is on "main"', check: git => git.HEAD.ref === 'main' },
-          { text: 'Merge "feature" into "main"', check: git => git.commits.some(c => c.parents.length === 2) }
+          { text: 'Switch HEAD back to "main" (git switch main)', check: git => git.HEAD.ref === 'main' },
+          { text: 'Merge "feature" into "main" (git merge feature)', check: git => git.commits.some(c => c.parents.length === 2) }
         ]
       },
       {
@@ -1183,6 +1759,7 @@
         title: 'Level 5: Oops! Undo Commit',
         desc: 'Someone committed a broken config file to main! Revert or reset the bad commit so the bug is undone.',
         hint: 'Hint: Run either <code>git revert HEAD</code> (safe undo commit) or <code>git reset --hard HEAD~1</code> (rewinds branch pointer).',
+        quickCmds: ['git revert HEAD', 'git reset --hard HEAD~1', 'git log'],
         setup(git) {
           git.reset();
           git.run('git init');
@@ -1205,9 +1782,145 @@
       },
       {
         id: 6,
+        title: 'Level 6: Clash of Code (Merge Conflict)',
+        desc: 'Both "main" and "feature" modified config.js with different port settings! Merge "feature" into "main", resolve the conflict in config.js, stage it, and commit the merge.',
+        hint: 'Hint: 1) Run <code>git merge feature</code> (triggers conflict). 2) Inspect with <code>cat config.js</code>. 3) Resolve with <code>edit config.js PORT=8080</code> (or <code>git checkout --theirs config.js</code>). 4) Stage with <code>git add config.js</code> and run <code>git commit -m "Resolve conflict"</code>.',
+        quickCmds: ['git merge feature', 'cat config.js', 'edit config.js PORT=8080', 'git add config.js', 'git commit -m "Resolve conflict"'],
+        setup(git) {
+          git.reset();
+          git.run('git init');
+          git.run('edit config.js PORT=3000');
+          git.run('git add .');
+          git.run('git commit -m "Base config"');
+          git.run('git switch -c feature');
+          git.run('edit config.js PORT=8080');
+          git.run('git add .');
+          git.run('git commit -m "Feature port 8080"');
+          git.run('git switch main');
+          git.run('edit config.js PORT=5000');
+          git.run('git add .');
+          git.run('git commit -m "Main port 5000"');
+        },
+        objectives: [
+          {
+            text: 'Start merging "feature" into "main" (git merge feature)',
+            check: git => git.mergeState !== null || git.commits.some(c => c.parents.length === 2)
+          },
+          {
+            text: 'Resolve conflict in config.js (edit config.js ... then git add config.js)',
+            check: git => (git.mergeState !== null && Object.keys(git.mergeState.conflicts).length === 0) || git.commits.some(c => c.parents.length === 2)
+          },
+          {
+            text: 'Complete the merge commit (git commit -m "Resolve conflict")',
+            check: git => git.mergeState === null && git.commits.some(c => c.parents.length === 2)
+          }
+        ]
+      },
+      {
+        id: 7,
+        title: 'Level 7: Linear History (git rebase)',
+        desc: 'You built "dashboard.js" on "feature", while "main" received an urgent "security.js" patch. Replay your feature commit cleanly on top of "main" using "git rebase main"!',
+        hint: 'Hint: While on <code>feature</code>, run <code>git rebase main</code> to replay your work on top of main. Then run <code>git switch main</code> and <code>git merge feature</code> for a clean fast-forward!',
+        quickCmds: ['git rebase main', 'git switch main', 'git merge feature', 'git log --oneline'],
+        setup(git) {
+          git.reset();
+          git.run('git init');
+          git.run('touch core.js');
+          git.run('git add .');
+          git.run('git commit -m "Initial core"');
+          git.run('git switch -c feature');
+          git.run('touch dashboard.js');
+          git.run('git add .');
+          git.run('git commit -m "Add dashboard"');
+          git.run('git switch main');
+          git.run('touch security.js');
+          git.run('git add .');
+          git.run('git commit -m "Security patch"');
+          git.run('git switch feature');
+        },
+        objectives: [
+          {
+            text: 'Rebase "feature" onto "main" (git rebase main)',
+            check: git => {
+              const featCommit = git.commits.find(c => c.id === git.branches['feature']);
+              return featCommit && ('security.js' in featCommit.tree) && ('dashboard.js' in featCommit.tree) && featCommit.parents.length === 1;
+            }
+          },
+          {
+            text: 'Switch to "main" and fast-forward merge "feature" (git switch main && git merge feature)',
+            check: git => {
+              const mainCommit = git.commits.find(c => c.id === git.branches['main']);
+              return mainCommit && ('security.js' in mainCommit.tree) && ('dashboard.js' in mainCommit.tree) && mainCommit.parents.length === 1;
+            }
+          }
+        ]
+      },
+      {
+        id: 8,
+        title: 'Level 8: Lost Commit Rescue (Reflog)',
+        desc: 'Disaster! Someone ran a bad "git reset --hard HEAD~1" on main and wiped out the commit containing "vault.js"! Use "git reflog" (or "git fsck") to find the lost commit and restore it.',
+        hint: 'Hint: Run <code>git reflog</code> (or <code>git fsck</code>) to inspect HEAD history, then run <code>git reset --hard HEAD@{1}</code> (or <code>git reset --hard &lt;commit-hash&gt;</code>) to recover "vault.js"!',
+        quickCmds: ['git reflog', 'git fsck', 'git reset --hard HEAD@{1}', 'ls'],
+        setup(git) {
+          git.reset();
+          git.run('git init');
+          git.run('touch core.js');
+          git.run('git add .');
+          git.run('git commit -m "Initial setup"');
+          git.run('touch vault.js');
+          git.run('git add .');
+          git.run('git commit -m "Add secret vault.js"');
+          git.run('git reset --hard HEAD~1');
+        },
+        objectives: [
+          {
+            text: 'Recover the lost "Add secret vault.js" commit onto main using git reflog & git reset --hard',
+            check: git => {
+              const cur = git.currentCommit();
+              return git.HEAD.ref === 'main' && cur && ('vault.js' in cur.tree);
+            }
+          }
+        ]
+      },
+      {
+        id: 9,
+        title: 'Level 9: Corrupted Repo Emergency',
+        desc: 'A power failure crashed Git mid-operation! A stale ".git/index.lock" is blocking commands, ".git/index" is corrupted, HEAD is detached, and main has a corrupted commit ("corrupt.bin"). Repair the repo and roll back main!',
+        hint: 'Hint: 1) Run <code>git fsck</code> to diagnose. 2) Run <code>rm .git/index.lock</code> and <code>rm .git/index</code> (or <code>git reset</code>). 3) Reattach to main with <code>git switch main</code>. 4) Roll back the corrupt commit with <code>git reset --hard HEAD~1</code>!',
+        quickCmds: ['git fsck', 'rm .git/index.lock', 'rm .git/index', 'git switch main', 'git reset --hard HEAD~1'],
+        setup(git) {
+          git.reset();
+          git.run('git init');
+          git.run('touch engine.js');
+          git.run('git add .');
+          git.run('git commit -m "Stable engine v1"');
+          const goodId = git.currentCommitId();
+          git.run('touch corrupt.bin');
+          git.run('git add .');
+          git.run('git commit -m "Corrupted write"');
+          git.run(`git checkout ${goodId}`);
+          git.corruptState.indexLock = true;
+          git.corruptState.corruptIndex = true;
+        },
+        objectives: [
+          { text: 'Remove stale .git/index.lock (rm .git/index.lock)', check: git => !git.corruptState.indexLock },
+          { text: 'Repair corrupted .git/index (rm .git/index or git reset)', check: git => !git.corruptState.corruptIndex },
+          { text: 'Reattach HEAD to branch "main" (git switch main)', check: git => git.HEAD.type === 'branch' && git.HEAD.ref === 'main' },
+          {
+            text: 'Roll back "Corrupted write" on main (git reset --hard HEAD~1)',
+            check: git => {
+              const cur = git.currentCommit();
+              return git.HEAD.type === 'branch' && git.HEAD.ref === 'main' && cur && ('engine.js' in cur.tree) && !('corrupt.bin' in cur.tree);
+            }
+          }
+        ]
+      },
+      {
+        id: 10,
         title: 'Sandbox Mode (Free Play)',
-        desc: 'You mastered the fundamentals! Use this open Git sandbox to experiment freely with branches, merges, resets, and commits.',
-        hint: 'Sandbox Tip: Try creating multiple branches, making commits on each, and watching the DAG commit graph update in real time!',
+        desc: 'You mastered the fundamentals and survived repo corruption! Use this open Git sandbox to experiment freely with git switch, merge conflicts, rebase, stash, reflog, tags, and more.',
+        hint: 'Sandbox Tip: Try <code>git switch -c dev</code>, <code>git stash</code>, <code>git rebase</code>, <code>git cherry-pick</code>, <code>git tag v1.0</code>, or <code>git reflog</code>!',
+        quickCmds: ['git switch -c feature', 'git switch main', 'git merge feature', 'git rebase main', 'git stash', 'git stash pop', 'git reflog', 'git log --oneline'],
         setup(git) {
           git.reset();
           git.run('git init');
@@ -1242,10 +1955,40 @@
       });
     }
 
+    function renderQuickActions() {
+      const container = document.getElementById('quick-actions');
+      if (!container) return;
+      const lvl = LEVELS[currentLevelIndex];
+      const baseCmds = lvl.quickCmds || [
+        'git init',
+        'touch app.js',
+        'git status',
+        'git add .',
+        'git commit -m "Update files"',
+        'git switch -c feature',
+        'git switch main',
+        'git merge feature',
+        'git log'
+      ];
+      container.innerHTML = '<span style="font-size:0.75rem;color:var(--muted);margin-right:4px;">Quick Fill:</span>';
+      baseCmds.forEach(cmd => {
+        const btn = document.createElement('button');
+        btn.className = 'quick-btn';
+        btn.setAttribute('data-cmd', cmd);
+        btn.textContent = cmd;
+        btn.addEventListener('click', () => {
+          executeCommand(cmd);
+          focusInputIfDesktop();
+        });
+        container.appendChild(btn);
+      });
+    }
+
     function loadLevel(idx) {
       currentLevelIndex = idx;
       const lvl = LEVELS[idx];
       lvl.setup(git);
+      renderQuickActions();
       document.getElementById('term-output').innerHTML = '';
       appendLog(`=== ${lvl.title} ===`, 'cmd');
       appendLog(lvl.desc, 'info');
@@ -1296,32 +2039,50 @@
       const stEl = document.getElementById('stage-files');
       const cmEl = document.getElementById('commit-files');
 
-      const { staged, untracked } = git.getStatus();
+      const { staged, untracked, conflicted } = git.getStatus();
       const wdKeys = Object.keys(git.workingDir);
       const stKeys = Object.keys(git.stagingArea);
       const headTree = git.headTree();
       const cmKeys = Object.keys(headTree);
 
       document.getElementById('wd-count').textContent = `${wdKeys.length} file(s)`;
-      document.getElementById('stage-count').textContent = `${stKeys.length} file(s)`;
+      document.getElementById('stage-count').textContent = git.corruptState.corruptIndex
+        ? '⚠️ CORRUPT'
+        : `${stKeys.length} file(s)`;
       document.getElementById('head-commit-id').textContent = git.currentCommitId() || 'None';
 
       wdEl.innerHTML = wdKeys.length
-        ? wdKeys.map(f => `<span class="file-pill ${untracked.includes(f) ? 'untracked' : ''}">${f}</span>`).join('')
+        ? wdKeys.map(f => {
+            if (conflicted.includes(f)) {
+              return `<span class="file-pill conflicted" title="Merge conflict! Run: cat ${f} or edit ${f} ...">⚠️ ${f} (conflict)</span>`;
+            }
+            return `<span class="file-pill ${untracked.includes(f) ? 'untracked' : ''}">${f}</span>`;
+          }).join('')
         : '<span style="color:var(--muted);font-size:0.78rem;">Empty</span>';
 
-      stEl.innerHTML = stKeys.length
-        ? stKeys.map(f => `<span class="file-pill ${staged.includes(f) ? 'staged' : ''}">${f}</span>`).join('')
-        : '<span style="color:var(--muted);font-size:0.78rem;">Nothing staged</span>';
+      if (git.corruptState.corruptIndex) {
+        stEl.innerHTML = '<span class="file-pill untracked">⚠️ .git/index corrupted (run: rm .git/index)</span>';
+      } else {
+        stEl.innerHTML = stKeys.length
+          ? stKeys.map(f => `<span class="file-pill ${staged.includes(f) ? 'staged' : ''}">${f}</span>`).join('')
+          : '<span style="color:var(--muted);font-size:0.78rem;">Nothing staged</span>';
+      }
+
+      if (git.corruptState.indexLock) {
+        stEl.innerHTML += ' <span class="file-pill conflicted">🔒 .git/index.lock</span>';
+      }
 
       cmEl.innerHTML = cmKeys.length
         ? cmKeys.map(f => `<span class="file-pill">${f}</span>`).join('')
         : '<span style="color:var(--muted);font-size:0.78rem;">No commit snapshot</span>';
 
-      const promptBranch = git.initialized ? ` (${git.HEAD.ref})` : '';
+      const headLabel = git.HEAD.type === 'detached' ? `detached@${git.HEAD.ref}` : git.HEAD.ref;
+      const promptBranch = git.initialized ? ` (${headLabel})` : '';
       document.getElementById('prompt-label').textContent = `player@gitquest:~/repo${promptBranch}$`;
       document.getElementById('repo-head-indicator').textContent = git.initialized
-        ? `HEAD → ${git.HEAD.ref} ${git.currentCommitId() ? `[${git.currentCommitId()}]` : '(unborn)'}`
+        ? (git.HEAD.type === 'detached'
+            ? `⚠️ HEAD detached at [${git.HEAD.ref}]`
+            : `HEAD → ${git.HEAD.ref} ${git.currentCommitId() ? `[${git.currentCommitId()}]` : '(unborn)'}`)
         : 'Repo not initialized';
     }
 
@@ -1383,25 +2144,43 @@
         });
       });
 
+      // Identify reachable commits from branches so dangling commits are styled distinctly
+      const reachable = new Set();
+      Object.values(git.branches).forEach(cid => {
+        if (!cid) return;
+        const q = [cid];
+        while (q.length) {
+          const cur = q.shift();
+          if (reachable.has(cur)) continue;
+          reachable.add(cur);
+          const cObj = git.commits.find(x => x.id === cur);
+          if (cObj) q.push(...cObj.parents);
+        }
+      });
+
       // Draw commit nodes
       git.commits.forEach(c => {
         const { x, y } = positions[c.id];
         const isHead = git.currentCommitId() === c.id;
+        const isDangling = !reachable.has(c.id);
 
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         circle.setAttribute('cx', x);
         circle.setAttribute('cy', y);
         circle.setAttribute('r', 20);
-        circle.setAttribute('fill', isHead ? '#38bdf8' : '#1e293b');
-        circle.setAttribute('stroke', isHead ? '#bae6fd' : '#38bdf8');
+        circle.setAttribute('fill', isHead ? '#38bdf8' : (isDangling ? '#0f172a' : '#1e293b'));
+        circle.setAttribute('stroke', isHead ? '#bae6fd' : (isDangling ? '#64748b' : '#38bdf8'));
         circle.setAttribute('stroke-width', isHead ? '4' : '2.5');
+        if (isDangling && !isHead) {
+          circle.setAttribute('stroke-dasharray', '4 3');
+        }
         svg.appendChild(circle);
 
         const hashTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         hashTxt.setAttribute('x', x);
         hashTxt.setAttribute('y', y + 4);
         hashTxt.setAttribute('text-anchor', 'middle');
-        hashTxt.setAttribute('fill', isHead ? '#0f172a' : '#f8fafc');
+        hashTxt.setAttribute('fill', isHead ? '#0f172a' : (isDangling ? '#94a3b8' : '#f8fafc'));
         hashTxt.setAttribute('font-family', 'monospace');
         hashTxt.setAttribute('font-size', '10');
         hashTxt.setAttribute('font-weight', '700');
@@ -1412,21 +2191,36 @@
         msgTxt.setAttribute('x', x);
         msgTxt.setAttribute('y', y + 38);
         msgTxt.setAttribute('text-anchor', 'middle');
-        msgTxt.setAttribute('fill', '#cbd5e1');
+        msgTxt.setAttribute('fill', isDangling ? '#64748b' : '#cbd5e1');
         msgTxt.setAttribute('font-size', '11');
         msgTxt.textContent = c.message.length > 16 ? c.message.slice(0, 15) + '…' : c.message;
         svg.appendChild(msgTxt);
 
-        // Draw branch tags pointing to this commit
-        const pointingBranches = Object.entries(git.branches)
+        // Draw branch & tag labels pointing to this commit
+        const labels = [];
+        Object.entries(git.branches)
           .filter(([, cid]) => cid === c.id)
-          .map(([b]) => b);
+          .forEach(([b]) => {
+            const isCurrent = git.HEAD.type === 'branch' && git.HEAD.ref === b;
+            labels.push({
+              text: isCurrent ? `HEAD → ${b}` : b,
+              color: isCurrent ? '#4ade80' : '#c084fc'
+            });
+          });
 
-        pointingBranches.forEach((b, bIdx) => {
-          const isCurrent = git.HEAD.ref === b;
+        if (git.HEAD.type === 'detached' && git.HEAD.ref === c.id) {
+          labels.push({ text: 'HEAD (detached)', color: '#facc15' });
+        }
+
+        Object.entries(git.tags)
+          .filter(([, cid]) => cid === c.id)
+          .forEach(([t]) => {
+            labels.push({ text: `🏷️ ${t}`, color: '#38bdf8' });
+          });
+
+        labels.forEach((lbl, bIdx) => {
           const tagY = y - 38 - bIdx * 24;
-          const label = isCurrent ? `HEAD → ${b}` : b;
-          const width = label.length * 7 + 16;
+          const width = lbl.text.length * 7 + 16;
 
           const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
           rect.setAttribute('x', x - width / 2);
@@ -1434,7 +2228,7 @@
           rect.setAttribute('width', width);
           rect.setAttribute('height', 20);
           rect.setAttribute('rx', 5);
-          rect.setAttribute('fill', isCurrent ? '#4ade80' : '#c084fc');
+          rect.setAttribute('fill', lbl.color);
           svg.appendChild(rect);
 
           const bTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -1445,7 +2239,7 @@
           bTxt.setAttribute('font-family', 'monospace');
           bTxt.setAttribute('font-size', '11');
           bTxt.setAttribute('font-weight', '700');
-          bTxt.textContent = label;
+          bTxt.textContent = lbl.text;
           svg.appendChild(bTxt);
         });
       });
